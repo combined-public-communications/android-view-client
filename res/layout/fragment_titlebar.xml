@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mainmenubar"
+    android:orientation="horizontal"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    style="@style/LightBlueActivityTheme">
+
+    <ImageButton
+        android:id="@+id/button_back"
+        android:background="@drawable/back"
+        android:contentDescription="@string/minute"
+        android:layout_marginTop="18dp"
+        android:layout_marginStart="12dp"
+        android:layout_width="28dp"
+        android:layout_height="28dp" />
+    <!--android:layout_marginLeft="12dp"-->
+    <TextView android:id="@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#ffffff"
+        android:text="@string/action_about"
+        android:textSize="18sp"
+        android:layout_marginTop="20dp"
+        android:layout_marginStart="8dp"
+        />
+    <!--android:layout_marginLeft="8dp"-->
+
+</LinearLayout>

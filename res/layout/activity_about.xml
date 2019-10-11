@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:layout_centerHorizontal="true">
+
+    <FrameLayout
+        android:id="@+id/menu_fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="64dip" />
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp">
+
+
+        <TextView android:id="@+id/versionLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#000000"
+            android:text="@string/version"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp"
+            />
+        <!--android:layout_alignParentLeft="true"-->
+
+        <TextView android:id="@+id/versionValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#000000"
+            android:text="@string/app_version"
+            android:textSize="12sp"
+            android:layout_marginTop="8dp"
+            />
+        <!--android:layout_alignParentRight="true"-->
+
+        <!-- ImageButton android:id="@+id/more_info2"
+            android:contentDescription="@string/remove_room_description"
+            android:background="@drawable/right"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_marginTop="10dp"
+            android:layout_alignParentEnd="true" /-->
+
+    </LinearLayout>
+
+    <View
+        android:layout_height="1dp"
+        android:layout_width="fill_parent"
+        android:background="#cccccccc"
+        android:layout_marginBottom="5dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"/>
+
+    <LinearLayout
+        android:id="@+id/website"
+        android:orientation="horizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:gravity="center">
+
+
+        <TextView android:id="@+id/siteLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#000000"
+            android:text="@string/action_website"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp"
+            />
+        <!--android:layout_marginStart="10dp"-->
+        <!--android:layout_alignParentStart="true"-->
+        <!--android:layout_marginLeft="10dp"-->
+        <!--android:layout_alignParentLeft="true"-->
+
+        <ImageButton android:id="@+id/site_more_info"
+            android:background="@drawable/right"
+            android:contentDescription="@string/action_website"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginTop="10dp" />
+        <!--android:layout_alignParentEnd="true"-->
+        <!--android:layout_alignParentRight="true"-->
+
+    </LinearLayout>
+
+
+</LinearLayout>

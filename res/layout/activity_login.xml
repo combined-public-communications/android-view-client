@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:weightSum="1"
+    android:layout_margin="8dp"
+    android:layout_centerHorizontal="true"
+    style="@style/LightGrayActivityTheme">
+
+
+        <EditText
+            android:layout_width="match_parent"
+            android:layout_height="40dip"
+            android:inputType="textPersonName"
+            android:hint="@string/hint_name"
+            android:ems="10"
+            android:id="@+id/userName"
+            android:padding="8dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:textSize="16sp"
+            android:background="@drawable/edittext_background" />
+
+        <EditText
+            android:layout_width="match_parent"
+            android:layout_height="40dip"
+            android:inputType="textPassword"
+            android:hint="@string/hint_password"
+            android:ems="10"
+            android:id="@+id/password"
+            android:padding="6dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:textSize="16sp"
+            android:background="@drawable/edittext_background" />
+
+        <us.visitel.mobileclient.DisabledButton
+            android:layout_width="match_parent"
+            android:layout_height="50dip"
+            android:text="@string/login"
+            android:id="@+id/buttonLogin"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/green_button_background"
+            android:textColor="#ffffffff"
+            android:radius="8dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/register"
+            android:id="@+id/textRegister"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:textColor="@android:color/holo_blue_dark" />
+
+        <LinearLayout
+            android:id="@+id/buttons_password_container"
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginEnd="10dp"
+            android:gravity="center">
+
+            <CheckBox
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/remember_me"
+                android:id="@+id/rememberMe"
+                android:checked="true"
+                android:layout_marginTop="10dp"
+                android:textColor="@android:color/black" />
+            <!--android:layout_alignParentStart="true"-->
+            <!--android:layout_alignParentLeft="true"-->
+            <TextView
+                android:layout_width="129dp"
+                android:layout_height="wrap_content"
+                android:text="@string/forgot_password"
+                android:id="@+id/textForgetPassword"
+                android:layout_marginTop="10dp"
+                android:textColor="@android:color/holo_blue_dark" />
+            <!--android:layout_alignParentEnd="true"-->
+            <!--android:layout_alignParentRight="true"-->
+        </LinearLayout>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceMedium"
+            android:text="@string/error_not_connected"
+            android:textColor="#D8000C"
+            android:background="@drawable/textview_border"
+            android:id="@+id/textErrorMessage"
+            android:layout_marginTop="20dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            style="@android:style/TextAppearance.Small"
+            android:layout_gravity="bottom" />
+
+</LinearLayout>

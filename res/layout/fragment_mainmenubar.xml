@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mainmenubar"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    style="@style/F8ActivityTheme">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#cccccc"/>
+
+    <LinearLayout android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#f8f8f8">
+
+        <FrameLayout
+            android:id="@+id/profile_button_fragment_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="24dp"
+            />
+        <!--android:layout_marginRight="24dp"-->
+
+        <!--<View class="org.appspot.apprtc.UnderscoreImageButton"-->
+        <!--android:id="@+id/button_profile"-->
+        <!--android:background="@drawable/profile_button_background"-->
+        <!--android:contentDescription="@string/action_profile"-->
+        <!--android:layout_marginEnd="24dp"-->
+        <!--android:layout_width="48dp"-->
+        <!--android:layout_height="48dp"-->
+        <!--android:textOff="Profile"-->
+        <!--android:textOn="Profile"/>-->
+
+        <FrameLayout
+            android:id="@+id/contact_button_fragment_container"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            />
+        <!--android:layout_marginLeft="24dp"-->
+
+        <!--<View class="org.appspot.apprtc.UnderscoreImageButton"-->
+        <!--android:id="@+id/button_contacts"-->
+        <!--android:background="@drawable/contact_button_background"-->
+        <!--android:contentDescription="@string/contacts"-->
+        <!--android:padding="10dp"-->
+        <!--android:layout_marginStart="24dp"-->
+        <!--android:layout_width="48dp"-->
+        <!--android:layout_height="48dp"-->
+        <!--android:textOff="Contacts"-->
+        <!--android:textOn="Contacts"/>-->
+
+        <!-- org.appspot.apprtc.UnderscoreImageButton
+            android:id="@+id/button_settings"
+            android:background="@drawable/ic_action_return_from_full_screen"
+            android:contentDescription="@string/disconnect_call"
+            android:layout_width="48dp"
+            android:layout_height="48dp" /-->
+    </LinearLayout>
+</LinearLayout>

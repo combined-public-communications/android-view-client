@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <style name="CallActivityTheme" parent="android:Theme.Black">
+    <item name="android:windowActionBar">false</item>
+    <item name="android:windowFullscreen">true</item>
+    <item name="android:windowNoTitle">true</item>
+  </style>
+  <style name="VisiTelActivityTheme" parent="android:Theme.NoTitleBar.Fullscreen">
+    <item name="android:windowActionBar">false</item>
+    <item name="android:windowFullscreen">true</item>
+    <item name="android:windowNoTitle">true</item>
+  </style>
+  <style name="BlackActivityTheme" parent="android:Theme.Black.NoTitleBar.Fullscreen">
+    <item name="android:windowActionBar">false</item>
+  </style>
+  <style name="LightGrayActivityTheme" parent="android:Theme.NoTitleBar.Fullscreen">
+    <item name="android:windowActionBar">false</item>
+    <item name="android:background">#ffeeeeee</item>
+  </style>
+  <style name="F8ActivityTheme" parent="android:Theme.NoTitleBar.Fullscreen">
+    <item name="android:windowActionBar">false</item>
+    <item name="android:background">#fff8f8f8</item>
+  </style>
+  <style name="WhiteActivityTheme" parent="android:Theme.NoTitleBar.Fullscreen">
+    <item name="android:windowActionBar">false</item>
+    <item name="android:windowFullscreen">true</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:background">#ffffffff</item>
+  </style>
+  <style name="LightBlueActivityTheme" parent="android:Theme.NoTitleBar.Fullscreen">
+    <item name="android:windowActionBar">false</item>
+    <item name="android:background">#4285f4</item>
+  </style>
+</resources>
