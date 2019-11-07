@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#00000000</color>
+    <color name="colorAccent">#ff4081</color>
+    <color name="transparentColor">#00000000</color>
+    <color name="foreground_material_light_1">#d78989</color>
+    <color name="main_toolbar_color">#2769b0</color>
+    <color name="main_list_color">#3182d9</color>
+    <color name="whiteColor">#ffffff</color>
+    <color name="whiteTintColor">#a6ffffff</color>
+    <color name="FlatBlue_Dark">#2c3872</color>
+    <color name="FlatGreen_Light">#3bc651</color>
+    <color name="FlatForestGreen_Dark">#254026</color>
+    <color name="FlatRed_Dark">#ac281c</color>
+    <color name="FlatWhite_Light">#e8ecee</color>
+    <color name="FlatTeal_Light">#3e6c84</color>
+</resources>
