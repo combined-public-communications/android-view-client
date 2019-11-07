@@ -25,6 +25,7 @@ out/
 /build
 /captures
 .externalNativeBuild
+.idea
 
 # Gradle files
 .gradle/
