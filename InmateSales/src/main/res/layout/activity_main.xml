@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/generalConstraintLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:id="@+id/imageViewBackground"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/main_toolbar_color"
+        android:contentDescription="BackgroundImage"
+        android:scaleType="fitXY"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
+
+    <view
+        android:id="@+id/viewTint2"
+        class="androidx.appcompat.widget.ActionMenuView"
+        id="@+id/view"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:alpha="0.25"
+        android:background="@android:color/holo_purple"
+        android:scaleType="centerCrop"
+        android:solidColor="@color/transparentColor"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="@+id/imageViewBackground"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="@+id/viewTint2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/backgroundConstraintLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="30"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintDimensionRatio=""
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <ImageView
+                android:id="@+id/logoNameImg"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:adjustViewBounds="true"
+                android:contentDescription="logo"
+                android:cropToPadding="false"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintVertical_bias="0.081"
+                app:srcCompat="@drawable/app_logo_main" />
+
+            <Button
+                android:id="@+id/fBlueLine"
+                android:layout_width="0dp"
+                android:layout_height="4dp"
+                android:background="@color/main_list_color"
+                app:layout_constraintEnd_toEndOf="@+id/logoNameImg"
+                app:layout_constraintStart_toStartOf="@+id/logoNameImg"
+                app:layout_constraintTop_toBottomOf="@+id/logoNameImg" />
+
+            <Button
+                android:id="@+id/sBlueLine"
+                android:layout_width="0dp"
+                android:layout_height="4dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:background="@color/main_list_color"
+                app:layout_constraintBottom_toBottomOf="@+id/logOffBtn"
+                app:layout_constraintEnd_toStartOf="@+id/logOffBtn"
+                app:layout_constraintStart_toStartOf="@+id/fBlueLine"
+                app:layout_constraintTop_toTopOf="@+id/logOffBtn" />
+
+            <Button
+                android:id="@+id/tBlueLine"
+                android:layout_width="0dp"
+                android:layout_height="4dp"
+                android:layout_marginBottom="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:background="@color/main_list_color"
+                app:layout_constraintBottom_toBottomOf="@+id/logOffBtn"
+                app:layout_constraintEnd_toEndOf="@+id/fBlueLine"
+                app:layout_constraintStart_toEndOf="@+id/logOffBtn"
+                app:layout_constraintTop_toTopOf="@+id/logOffBtn" />
+
+            balanceLbl
+
+            <TextView
+                android:id="@+id/nameLbl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="8dp"
+                android:autoText="false"
+                android:fontFamily="monospace"
+                android:text="Developer"
+                android:textAlignment="center"
+                android:textColor="@color/whiteColor"
+                android:textIsSelectable="false"
+                android:textSize="24sp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintDimensionRatio="w,5:1"
+                app:layout_constraintEnd_toEndOf="@+id/fBlueLine"
+                app:layout_constraintHorizontal_bias="0.539"
+                app:layout_constraintStart_toStartOf="@+id/fBlueLine"
+                app:layout_constraintTop_toBottomOf="@+id/fBlueLine"
+                app:layout_constraintVertical_bias="0.164" />
+
+            <TextView
+                android:id="@+id/balanceLbl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="32dp"
+                android:fontFamily="monospace"
+                android:text="0 min."
+                android:textAlignment="center"
+                android:textColor="@color/whiteColor"
+                android:textSize="24sp"
+                app:layout_constraintEnd_toEndOf="@+id/nameLbl"
+                app:layout_constraintHorizontal_bias="0.508"
+                app:layout_constraintStart_toStartOf="@+id/nameLbl"
+                app:layout_constraintTop_toBottomOf="@+id/nameLbl" />
+
+            <TextView
+                android:id="@+id/depositLbl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:fontFamily="monospace"
+                android:onClick="onClick"
+                android:text="Deposit"
+                android:textAlignment="center"
+                android:textColor="@color/whiteColor"
+                android:textSize="24sp"
+                app:layout_constraintEnd_toEndOf="@+id/nameLbl"
+                app:layout_constraintHorizontal_bias="0.511"
+                app:layout_constraintStart_toStartOf="@+id/nameLbl"
+                app:layout_constraintTop_toBottomOf="@+id/balanceLbl" />
+
+            <Button
+                android:id="@+id/logOffBtn"
+                android:layout_width="55dp"
+                android:layout_height="57dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="84dp"
+                android:background="@drawable/exit_door"
+                android:text="Exit"
+                app:layout_constraintDimensionRatio="1:1"
+                app:layout_constraintEnd_toEndOf="@+id/fBlueLine"
+                app:layout_constraintHorizontal_bias="0.521"
+                app:layout_constraintStart_toStartOf="@+id/fBlueLine"
+                app:layout_constraintTop_toBottomOf="@+id/depositLbl" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <ImageView
+            android:id="@+id/imageView3"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="70"
+            app:layout_constraintBottom_toTopOf="@+id/imageViewBackground"
+            app:layout_constraintDimensionRatio="h,1:1"
+            app:layout_constraintEnd_toEndOf="@+id/viewTint2"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.0"
+            app:srcCompat="@color/transparentColor" />
+
+    </LinearLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/mainConstraintLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:context="com.combinedpublic.mobileclient.Main">
+
+        <androidx.appcompat.widget.Toolbar
+            android:id="@+id/toolbarMain"
+            android:layout_width="match_parent"
+            android:layout_height="83dp"
+            android:background="@color/main_toolbar_color"
+            android:minHeight="?attr/actionBarSize"
+            android:theme="?attr/actionBarTheme"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <ListView
+            android:id="@+id/contactListView"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:background="@color/main_list_color"
+            android:divider="#ffffff"
+            android:dividerHeight="2px"
+            android:padding="10dp"
+            android:scrollbars="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="1.0"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/toolbarMain"
+            app:layout_constraintVertical_bias="1.0" />
+
+        <Button
+            android:id="@+id/btnMenu"
+            android:layout_width="43dp"
+            android:layout_height="46dp"
+            android:layout_marginBottom="16dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/menu"
+            android:contentDescription="menuButton"
+            android:text="Button"
+            app:layout_constraintBottom_toTopOf="@+id/contactListView"
+            app:layout_constraintDimensionRatio="h,1:1"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/toolbarMain" />
+
+        <ImageView
+            android:id="@+id/imageViewLogoMain"
+            android:layout_width="214dp"
+            android:layout_height="0dp"
+            android:contentDescription="logo"
+            android:scaleType="fitCenter"
+            app:layout_constraintBottom_toTopOf="@+id/contactListView"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.5"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/cpc_logo_loading_white" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <RelativeLayout
+        android:id="@+id/loadingPanelMain"
+        style="@style/GenericProgressBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <ProgressBar
+            style="@style/GenericProgressIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            android:scaleX="3"
+            android:scaleY="3" />
+    </RelativeLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
