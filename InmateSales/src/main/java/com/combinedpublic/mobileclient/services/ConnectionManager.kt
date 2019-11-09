@@ -1,6 +1,5 @@
 package com.combinedpublic.mobileclient.services
 
-import android.annotation.TargetApi
 import android.app.*
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -20,7 +19,6 @@ import com.combinedpublic.mobileclient.Classes.CpcApplication
 import com.combinedpublic.mobileclient.Classes.User
 import com.combinedpublic.mobileclient.Main
 import com.combinedpublic.mobileclient.R.drawable
-import com.combinedpublic.mobileclient.R.string
 import com.google.gson.Gson
 import com.neovisionaries.ws.client.*
 import org.json.JSONException
@@ -305,45 +303,47 @@ class ConnectionManager : Service() {
             }
         }
 
-        /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-            startMyOwnForeground()
-        else
-            startForeground(1, Notification())*/
+        //startService()
 
-        if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
-            startService(Intent(this, ConnectionManager::class.java))
-        }
+        startForeground()
 
         User.getInstance().device = getDeviceSuperInfo()
+
+        factory = WebSocketFactory().setConnectionTimeout(5000)
 
         startClient()
         startCheckInternetConnectionTask()
 
-        //getTokenManually()
     }
 
-//    fun getTokenManually(){
-//        // Get token
-//        // [START retrieve_current_token]
-//        FirebaseInstanceId.getInstance().instanceId
-//                .addOnCompleteListener(OnCompleteListener { task ->
-//                    if (!task.isSuccessful) {
-//                        Log.w(LOG_TAG, "getInstanceId failed", task.exception)
-//                        return@OnCompleteListener
-//                    }
-//
-//                    // Get new Instance ID token
-//                    val token = task.result?.token
-//
-//                    // Log and toast
-//                    Log.d(LOG_TAG, token)
-//                    if (token.isNullOrEmpty()){
-//                        return@OnCompleteListener
-//                    }
-//                    onNewToken(token!!)
-//                })
-//        // [END retrieve_current_token]
-//    }
+    private fun startForeground() {
+        val channelId =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    createNotificationChannel("ConnectionManager", "ConnectionManager")
+                } else {
+                    // If earlier version channel ID is not used
+                    ""
+                }
+
+        val notificationBuilder = NotificationCompat.Builder(this, channelId )
+        val notification = notificationBuilder.setOngoing(true)
+                .setSmallIcon(drawable.icon_app_inconnect)
+                .setPriority(2)
+                .setCategory(Notification.CATEGORY_SERVICE)
+                .build()
+        startForeground(101, notification)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createNotificationChannel(channelId: String, channelName: String): String{
+        val chan = NotificationChannel(channelId,
+                channelName, NotificationManager.IMPORTANCE_NONE)
+        chan.lightColor = Color.BLUE
+        chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+        val service = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        service.createNotificationChannel(chan)
+        return channelId
+    }
 
     private fun getDeviceSuperInfo(): String {
         var deviceStr = "empty"
@@ -369,95 +369,12 @@ class ConnectionManager : Service() {
         return deviceStr
     }
 
-
-    @TargetApi(Build.VERSION_CODES.O)
-    private fun startMyOwnForeground() {
-        Log.d(LOG_TAG,"startMyOwnForeground is called")
-
-        val NOTIFICATION_CHANNEL_ID =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    createNotificationChannel("us.visitel.mobileclient", "us.visitel.mobileclient.services.ConnectionManager")
-                } else {
-                    // If earlier version channel ID is not used
-                    // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
-                    ""
-                }
-
-        val notificationBuilder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-
-        val notification = notificationBuilder.setOngoing(true)
-                .setSmallIcon(drawable.icon_app_inconnect)
-                .setContentTitle("App is running in background")
-                .setPriority(NotificationManager.IMPORTANCE_MIN)
-                .setCategory(Notification.CATEGORY_SERVICE)
-                .build()
-
-
-//        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-//            startMyOwnForeground()
-//        else
-           // startForeground(2, notification)
-
-        if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
-            startService(Intent(this, ConnectionManager::class.java))
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun createNotificationChannel(channelId: String, channelName: String): String{
-        val chan = NotificationChannel(channelId,
-                channelName, NotificationManager.IMPORTANCE_NONE)
-        chan.lightColor = Color.BLUE
-        chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-        val service = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        service.createNotificationChannel(chan)
-        return channelId
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(LOG_TAG, "onStartCommand")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 
-            val builder = Notification.Builder(this, "test")
-                    .setContentTitle(getString(string.app_name))
-                    .setContentText("")
-                    .setAutoCancel(true)
+        startService()
 
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) builder.setChannelId("1")
-
-            val notification = builder.build()
-
-            /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                startMyOwnForeground()
-            else
-                startForeground(1, notification)*/
-
-            if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
-                startService(Intent(this, ConnectionManager::class.java))
-            }
-
-        } else {
-
-            val builder = NotificationCompat.Builder(this)
-                    .setContentTitle(getString(string.app_name))
-                    .setContentText("")
-                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                    .setAutoCancel(true)
-
-            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) builder.setChannelId("1")
-
-            val notification = builder.build()
-
-            /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                startMyOwnForeground()
-            else
-                startForeground(1, notification)*/
-
-            if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
-                startService(Intent(this, ConnectionManager::class.java))
-            }
-        }
-        return Service.START_NOT_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
@@ -478,6 +395,21 @@ class ConnectionManager : Service() {
     override fun onBind(intent: Intent): IBinder? {
         Log.d(LOG_TAG, "onBind")
         return null
+    }
+
+    fun startService(){
+        if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
+
+            var intent = Intent(this, ConnectionManager::class.java)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                //startForegroundService(intent)
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+
+        }
     }
 
     fun suspendApp() {
@@ -902,6 +834,7 @@ class ConnectionManager : Service() {
                                 } catch (e:Exception) {
                                 Log.d(LOG_TAG,"Error , received message with unknown type:"+text)
                             }
+
                         }
 
                         }

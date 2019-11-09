@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
@@ -82,6 +83,14 @@ class Login : AppCompatActivity(), View.OnClickListener {
         editTextPassword = findViewById(R.id.editTextPassword)
         loadingPanelLogin = findViewById(R.id.loadingPanelLogin)
         tvForget = findViewById(R.id.textViewForget)
+
+        if (User.getInstance().userName != null && User.getInstance().password != null){
+            editTextLogin.setText(User.getInstance().userName, TextView.BufferType.EDITABLE)
+            editTextPassword.setText(User.getInstance().password, TextView.BufferType.EDITABLE)
+        }
+
+        //val isDebuggable = 0 != applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE
+
     }
 
 
@@ -133,10 +142,15 @@ class Login : AppCompatActivity(), View.OnClickListener {
 
     fun startService(){
         if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
-            //Build.VERSION.SDK_INT >= 26 &&
-            //startForegroundService(Intent(this, ConnectionManager::class.java))
-        //} else {
-            startService(Intent(this, ConnectionManager::class.java))
+
+            var intent = Intent(this, ConnectionManager::class.java)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+
         }
     }
 
@@ -170,9 +184,7 @@ class Login : AppCompatActivity(), View.OnClickListener {
 
     override fun onResume() {
 
-        if (!User.getInstance()._isService && CpcApplication.IS_APP_IN_FOREGROUND ) {
-            startService()
-        }
+        startService()
 
         sendMsg("appResume")
         CallManager.getInstance().isMinimized = false

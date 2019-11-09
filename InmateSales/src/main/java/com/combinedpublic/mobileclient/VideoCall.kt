@@ -709,8 +709,7 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
         return true
     }
 
-    @MainThread
-    private fun closeCameraDevice() {
+    @MainThread private fun closeCameraDevice() {
     if (peerConnectionClient!!.videoCapturer != null) {
         try {
             if (peerConnectionClient!!.videoCapturer is CameraVideoCapturer) {

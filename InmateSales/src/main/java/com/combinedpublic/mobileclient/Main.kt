@@ -1,5 +1,6 @@
 package com.combinedpublic.mobileclient
 
+import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.app.Activity
@@ -31,6 +32,11 @@ import com.eggheadgames.siren.ISirenListener
 import com.eggheadgames.siren.Siren
 import com.eggheadgames.siren.SirenAlertType
 import com.eggheadgames.siren.SirenVersionCheckType
+import com.karumi.dexter.Dexter
+import com.karumi.dexter.MultiplePermissionsReport
+import com.karumi.dexter.PermissionToken
+import com.karumi.dexter.listener.PermissionRequest
+import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 
 
 class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
@@ -432,7 +438,7 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
 
         User.getInstance()._isCallingShowed = true
         User.getInstance()._isUrlOpen = true
-        if (CallManager.getInstance()._isInitiator) {
+        if (CallManager.getInstance()._isInitiator && checkPerms()) {
             showCallingViewAsInitiator()
         } else {
             showCallingViewAsIncomming()
@@ -487,6 +493,31 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
         intent.action = str
         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
         sendBroadcast(intent)
+    }
+
+    fun checkPerms():Boolean {
+        User.getInstance()._isAllPermsGranted = false
+        Dexter.withActivity(this)
+                .withPermissions(
+                        Manifest.permission.CAMERA,
+                        Manifest.permission.RECORD_AUDIO,
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ).withListener(object : MultiplePermissionsListener {
+                    override fun onPermissionsChecked(report: MultiplePermissionsReport) {
+                        Log.d(LOG_TAG,"onPermissionsChecked, report.areAllPermissionsGranted is : " + report.areAllPermissionsGranted())
+                        if (report.areAllPermissionsGranted()) {
+                            User.getInstance()._isAllPermsGranted = true
+                        }
+                    }
+
+                    override fun onPermissionRationaleShouldBeShown(permissions: List<PermissionRequest>, token: PermissionToken) {
+                        Log.d(LOG_TAG,"onPermissionRationaleShouldBeShown")
+
+                    }
+                }).check()
+
+        return User.getInstance()._isAllPermsGranted
     }
 }
 
