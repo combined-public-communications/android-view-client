@@ -134,7 +134,7 @@ class NotificationService: FirebaseMessagingService() {
         val defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
         val notificationBuilder = NotificationCompat.Builder(this, channelId)
                 .setSmallIcon(R.drawable.icon_app_inconnect)
-                .setContentTitle("VisiTel")
+                .setContentTitle("InmateSales")
                 .setContentText(messageBody)
                 .setAutoCancel(true)
                 .setSound(defaultSoundUri)
