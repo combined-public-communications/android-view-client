@@ -375,7 +375,6 @@ class ConnectionManager : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(LOG_TAG, "onStartCommand")
-
         startService()
 
         return START_NOT_STICKY

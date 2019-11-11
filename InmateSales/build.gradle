@@ -19,6 +19,7 @@ android {
         targetSdkVersion 29 // Changed to 29(Android 10.0) from 26(Android 8.0)
         versionCode 10509
         versionName "1.5.9" // Previous version 1.5.8
+
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled true
     }
