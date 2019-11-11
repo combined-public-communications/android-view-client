@@ -358,6 +358,10 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
 
     private fun startCall() {
 
+        if (CallManager.getInstance()._isInitiator == null) {
+            didHangUp()
+        }
+
         var iceCandidates = listOf<IceCandidate>()
 
         var signalingParameters = AppRTCClient.SignalingParameters(peerIceServers,
@@ -709,8 +713,7 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
         return true
     }
 
-    @MainThread
-    private fun closeCameraDevice() {
+    @MainThread private fun closeCameraDevice() {
     if (peerConnectionClient!!.videoCapturer != null) {
         try {
             if (peerConnectionClient!!.videoCapturer is CameraVideoCapturer) {
@@ -799,6 +802,7 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
     }
 
     override fun onPause() {
+        sendMsg("stopSound")
         sendMsg("appPause")
         CallManager.getInstance().isMinimized = true
         super.onPause()
@@ -806,6 +810,7 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
     }
 
     override fun onResume() {
+        sendMsg("stopSound")
         sendMsg("appResume")
         CallManager.getInstance().isMinimized = false
         super.onResume()

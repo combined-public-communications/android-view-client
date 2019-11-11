@@ -1,5 +1,6 @@
 package com.combinedpublic.mobileclient
 
+import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.app.Activity
@@ -8,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
@@ -24,13 +26,20 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import com.combinedpublic.mobileclient.Classes.CallManager
 import com.combinedpublic.mobileclient.Classes.Configuration
+import com.combinedpublic.mobileclient.Classes.CpcApplication
 import com.combinedpublic.mobileclient.Classes.User
+import com.combinedpublic.mobileclient.services.ConnectionManager
 import com.combinedpublic.mobileclient.services.Contact
 import com.combinedpublic.mobileclient.ui.ContactsAdapter
 import com.eggheadgames.siren.ISirenListener
 import com.eggheadgames.siren.Siren
 import com.eggheadgames.siren.SirenAlertType
 import com.eggheadgames.siren.SirenVersionCheckType
+import com.karumi.dexter.Dexter
+import com.karumi.dexter.MultiplePermissionsReport
+import com.karumi.dexter.PermissionToken
+import com.karumi.dexter.listener.PermissionRequest
+import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 
 
 class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
@@ -92,6 +101,11 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
             } else if (action == "UnauthorizedDevice") {
                 Toast.makeText(applicationContext,"Logged in from another device.",Toast.LENGTH_SHORT).show()
                 logOff()
+            } else if (action == Intent.ACTION_SCREEN_ON) {
+                startService()
+            } else if (action == Intent.ACTION_SCREEN_OFF) {
+                User.getInstance()._isRestarted = true
+                stopService()
             }
         }
     }
@@ -342,6 +356,9 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
 
     override fun onResume() {
         sendMsg("appResume")
+
+        startService()
+
         CallManager.getInstance().isMinimized = false
         Log.d(LOG_TAG,"onResume")
         User.getInstance()._isUrlOpen = false
@@ -432,7 +449,7 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
 
         User.getInstance()._isCallingShowed = true
         User.getInstance()._isUrlOpen = true
-        if (CallManager.getInstance()._isInitiator) {
+        if (CallManager.getInstance()._isInitiator && checkPerms()) {
             showCallingViewAsInitiator()
         } else {
             showCallingViewAsIncomming()
@@ -482,11 +499,56 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
         }
     }
 
+    fun startService(){
+        if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
+
+            var intent = Intent(this, ConnectionManager::class.java)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+
+        }
+    }
+
+    fun stopService() {
+        if (!CallManager.getInstance().isStarted && !User.getInstance()._isUrlOpen) {
+            stopService(Intent(this, ConnectionManager::class.java))
+        }
+    }
+
     private fun sendMsg(str: String){
         val intent = Intent()
         intent.action = str
         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
         sendBroadcast(intent)
+    }
+
+    fun checkPerms():Boolean {
+        User.getInstance()._isAllPermsGranted = false
+        Dexter.withActivity(this)
+                .withPermissions(
+                        Manifest.permission.CAMERA,
+                        Manifest.permission.RECORD_AUDIO,
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ).withListener(object : MultiplePermissionsListener {
+                    override fun onPermissionsChecked(report: MultiplePermissionsReport) {
+                        Log.d(LOG_TAG,"onPermissionsChecked, report.areAllPermissionsGranted is : " + report.areAllPermissionsGranted())
+                        if (report.areAllPermissionsGranted()) {
+                            User.getInstance()._isAllPermsGranted = true
+                        }
+                    }
+
+                    override fun onPermissionRationaleShouldBeShown(permissions: List<PermissionRequest>, token: PermissionToken) {
+                        Log.d(LOG_TAG,"onPermissionRationaleShouldBeShown")
+
+                    }
+                }).check()
+
+        return User.getInstance()._isAllPermsGranted
     }
 }
 

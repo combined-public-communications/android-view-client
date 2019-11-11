@@ -36,6 +36,9 @@ class Calling : AppCompatActivity() {
             else if (action == "manuallyCloseCalling"){
                 closeCalling()
             }
+            else if (action == "stopSound"){
+                stopSound()
+            }
         }
     }
 
@@ -65,6 +68,7 @@ class Calling : AppCompatActivity() {
         val filter = IntentFilter()
         filter.addAction("reject")
         filter.addAction("manuallyCloseCalling")
+        filter.addAction("stopSound")
         registerReceiver(receiver, filter)
 
         playSound()
@@ -154,9 +158,15 @@ class Calling : AppCompatActivity() {
     }
 
     fun playSound() {
+
         if (mediaPlayer != null) {
             mediaPlayer!!.stop()
         }
+
+        if (CallManager.getInstance()._isInitiator == null) {
+            return
+        }
+
         var resID = resources.getIdentifier("telephone_ring", "raw", packageName)
         if (CallManager.getInstance()._isInitiator) {
             resID = resources.getIdentifier("dial", "raw", packageName)
