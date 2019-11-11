@@ -116,6 +116,10 @@ class ConnectionManager : Service() {
             }
             else if (action == "repeatRaCall") {
                 if (notifManager != null) {  notifManager!!.cancel(10) }
+                if (callManager.raCallMsg == null) {
+                    hangUp()
+                    return
+                }
                 continueRaCall(callManager.raCallMsg)
             }
             else if (action == "sendOffer") {
@@ -371,7 +375,6 @@ class ConnectionManager : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(LOG_TAG, "onStartCommand")
-
         startService()
 
         return START_NOT_STICKY
@@ -579,6 +582,7 @@ class ConnectionManager : Service() {
                                             val intent = Intent()
                                             intent.action = "Unauthorized"
                                             sendBroadcast(intent)
+                                            return
                                         }
                                     }
 

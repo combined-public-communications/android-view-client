@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.Log
@@ -25,7 +26,9 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import com.combinedpublic.mobileclient.Classes.CallManager
 import com.combinedpublic.mobileclient.Classes.Configuration
+import com.combinedpublic.mobileclient.Classes.CpcApplication
 import com.combinedpublic.mobileclient.Classes.User
+import com.combinedpublic.mobileclient.services.ConnectionManager
 import com.combinedpublic.mobileclient.services.Contact
 import com.combinedpublic.mobileclient.ui.ContactsAdapter
 import com.eggheadgames.siren.ISirenListener
@@ -98,6 +101,11 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
             } else if (action == "UnauthorizedDevice") {
                 Toast.makeText(applicationContext,"Logged in from another device.",Toast.LENGTH_SHORT).show()
                 logOff()
+            } else if (action == Intent.ACTION_SCREEN_ON) {
+                startService()
+            } else if (action == Intent.ACTION_SCREEN_OFF) {
+                User.getInstance()._isRestarted = true
+                stopService()
             }
         }
     }
@@ -348,6 +356,9 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
 
     override fun onResume() {
         sendMsg("appResume")
+
+        startService()
+
         CallManager.getInstance().isMinimized = false
         Log.d(LOG_TAG,"onResume")
         User.getInstance()._isUrlOpen = false
@@ -485,6 +496,26 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
             adapter.notifyDataSetChanged()
             contactListView.invalidateViews()
             contactListView.refreshDrawableState()
+        }
+    }
+
+    fun startService(){
+        if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
+
+            var intent = Intent(this, ConnectionManager::class.java)
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+
+        }
+    }
+
+    fun stopService() {
+        if (!CallManager.getInstance().isStarted && !User.getInstance()._isUrlOpen) {
+            stopService(Intent(this, ConnectionManager::class.java))
         }
     }
 
