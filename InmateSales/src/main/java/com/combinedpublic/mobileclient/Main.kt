@@ -96,10 +96,10 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
                 handleShowVideoCallView()
             }
             else if (action == "Unauthorized") {
-                Toast.makeText(applicationContext,"Already Authorized",Toast.LENGTH_SHORT).show()
+                showToast("Already Authorized")
                 logOff()
             } else if (action == "UnauthorizedDevice") {
-                Toast.makeText(applicationContext,"Logged in from another device.",Toast.LENGTH_SHORT).show()
+                showToast("Logged in from another device.")
                 logOff()
             } else if (action == Intent.ACTION_SCREEN_ON) {
                 startService()
@@ -107,6 +107,14 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
                 User.getInstance()._isRestarted = true
                 stopService()
             }
+        }
+    }
+
+    fun showToast(str: String){
+        try {
+            Toast.makeText(applicationContext,str,Toast.LENGTH_SHORT).show()
+        } catch (ex: java.lang.Exception) {
+            ex.printStackTrace()
         }
     }
 
@@ -441,7 +449,8 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
         window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
 
         if (str != null && str != "") {
-                Toast.makeText(applicationContext,"Error: "+ str,Toast.LENGTH_SHORT).show()
+
+            showToast("Error: "+ str)
         }
     }
 

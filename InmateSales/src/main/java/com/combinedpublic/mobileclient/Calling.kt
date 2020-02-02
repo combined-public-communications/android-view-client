@@ -204,7 +204,13 @@ class Calling : AppCompatActivity() {
     }
 
     fun showToast(msg: String) {
-        runOnUiThread { Toast.makeText(this@Calling, msg, Toast.LENGTH_SHORT).show() }
+        try {
+            runOnUiThread { Toast.makeText(this@Calling, msg, Toast.LENGTH_SHORT).show() }
+        } catch (ex: java.lang.Exception) {
+            ex.printStackTrace()
+        }
     }
+
+
 
 }

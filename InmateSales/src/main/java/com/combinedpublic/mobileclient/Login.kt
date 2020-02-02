@@ -129,7 +129,7 @@ class Login : AppCompatActivity(), View.OnClickListener {
 
             }
         } else {
-            Toast.makeText(applicationContext,"Error , you should accept all permissions", Toast.LENGTH_SHORT).show()
+            showToast("Error , you should accept all permissions")
         }
     }
 
@@ -137,6 +137,14 @@ class Login : AppCompatActivity(), View.OnClickListener {
         if (!User.getInstance()._isMainShowed) {
             val intentMain = Intent(this, Main::class.java)
             startActivity(intentMain)
+        }
+    }
+
+    fun showToast(str: String){
+        try {
+            Toast.makeText(applicationContext,str,Toast.LENGTH_SHORT).show()
+        } catch (ex: java.lang.Exception) {
+            ex.printStackTrace()
         }
     }
 
@@ -257,7 +265,7 @@ class Login : AppCompatActivity(), View.OnClickListener {
         this.editTextLogin.isFocusableInTouchMode = true
 
         if (str != null && str != "") {
-            Toast.makeText(applicationContext,"Error: "+ str, Toast.LENGTH_SHORT).show()
+            showToast("Error: "+ str)
         }
 
     }

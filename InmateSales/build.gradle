@@ -17,9 +17,8 @@ android {
         applicationId 'com.combinedpublic.mobileclient'
         minSdkVersion 19
         targetSdkVersion 29 // Changed to 29(Android 10.0) from 26(Android 8.0)
-        versionCode 10509
-        versionName "1.5.9" // Previous version 1.5.8
-
+        versionCode 10601
+        versionName "1.6.1" // Previous version 1.6.0
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled true
     }

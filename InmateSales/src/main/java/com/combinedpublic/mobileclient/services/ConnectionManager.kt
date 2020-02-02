@@ -229,7 +229,7 @@ class ConnectionManager : Service() {
             else if (action == AppConstant.YES_ACTION) {
                 if (notifManager != null) {  notifManager!!.cancel(10) }
                 Log.d(LOG_TAG,"OPEN CALLED")
-                Toast.makeText(context, "OPEN CALLED", Toast.LENGTH_SHORT).show()
+                showToast("OPEN CALLED")
             }
             else if (action == AppConstant.CANCEL_ACTION) {
                 if (callManager._isIncommingStarted && mWebSocketClient!!.state == WebSocketState.OPEN) {hangUp()}
@@ -237,10 +237,21 @@ class ConnectionManager : Service() {
                 val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 notificationManager.cancelAll()
                 Log.d(LOG_TAG,"CANCEL CALLED")
-                Toast.makeText(context, "CANCEL CALLED", Toast.LENGTH_SHORT).show()
+                showToast("CANCEL CALLED")
+            } else if (action == "startClient") {
+                startClient()
             }
         }
     }
+
+    fun showToast(str: String){
+        try {
+            Toast.makeText(applicationContext,str,Toast.LENGTH_SHORT).show()
+        } catch (ex: java.lang.Exception) {
+            ex.printStackTrace()
+        }
+    }
+
 
     override fun onCreate() {
         super.onCreate()
@@ -375,6 +386,7 @@ class ConnectionManager : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(LOG_TAG, "onStartCommand")
+
         startService()
 
         return START_NOT_STICKY
@@ -910,7 +922,12 @@ class ConnectionManager : Service() {
         callManager._isIncommingStarted = false
         user._isCallingShowed = false
 
-        val hangup = hangup("hangup", user.device, user.id, callManager._contactId.toString(), callManager._conversationId.toString())
+        val device = user.device ?: "null"
+        val id = user.id ?: "0"
+        val contactId = (callManager._contactId ?: 0).toString()
+        val conversationId = (callManager._conversationId ?: 0).toString()
+
+        val hangup = hangup("hangup", device, id, contactId, conversationId)
         var message = gson.toJson(hangup)
         mWebSocketClient!!.sendText(message)
         roomState = ConnectionState.CLOSED

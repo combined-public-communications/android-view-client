@@ -5,6 +5,8 @@ import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import androidx.annotation.Nullable;
+
 import com.combinedpublic.mobileclient.Classes.CallManager;
 import com.combinedpublic.mobileclient.WebRTC.AppRTCClient.SignalingParameters;
 
@@ -64,8 +66,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import androidx.annotation.Nullable;
 
 //import org.webrtc.audio.LegacyAudioDeviceModule;
 
@@ -502,6 +502,7 @@ public class PeerConnectionClient {
         sdpMediaConstraints = new MediaConstraints();
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
         sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+        sdpMediaConstraints.mandatory.add(new MediaConstraints.KeyValuePair("IceRestart", "true"));
     }
     private void createPeerConnectionInternal() {
         if (factory == null || isError) {
@@ -1090,6 +1091,7 @@ public class PeerConnectionClient {
                 } else if (newState == IceConnectionState.FAILED) {
                     events.onIceFailed();
                     reportError("ICE connection failed.");
+
                 }
             });
         }

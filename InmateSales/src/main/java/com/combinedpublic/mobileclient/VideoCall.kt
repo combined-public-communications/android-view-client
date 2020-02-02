@@ -895,8 +895,13 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
 
     private fun showToast(msg: String) {
         Log.d(LOG_TAG,msg)
-        runOnUiThread { Toast.makeText(this@VideoCall, msg, Toast.LENGTH_SHORT).show() }
+        try {
+            runOnUiThread { Toast.makeText(this@VideoCall, msg, Toast.LENGTH_SHORT).show() }
+        } catch (ex: java.lang.Exception) {
+            ex.printStackTrace()
+        }
     }
+
 
     /*override fun onSaveInstanceState(outState: Bundle?) {
         super.onSaveInstanceState(outState)
