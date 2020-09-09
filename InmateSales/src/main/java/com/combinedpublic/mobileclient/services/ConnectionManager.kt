@@ -184,7 +184,7 @@ class ConnectionManager : Service() {
                 var callconnectedMsg: callconnected? = null
 
                 callconnectedMsg = if (callManager._isTwilio) {
-                    callconnected("callconnected",user.id,callManager._contactId,callManager._conversationId, callManager._twilio_token, "twilio room sid??")
+                    callconnected("callconnected",user.id,callManager._contactId,callManager._conversationId, callManager._twilio_token, callManager._twilio_room_sid)
                 } else {
                     callconnected("callconnected",user.id,callManager._contactId,callManager._conversationId, "", "")
                 }

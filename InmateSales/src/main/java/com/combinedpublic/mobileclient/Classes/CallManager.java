@@ -35,6 +35,7 @@ public class CallManager {
     public ra_call_rcv raCallMsg;
     public Boolean _isTwilio = false;
     public String _twilio_token = "";
+    public String _twilio_room_sid = "AC06e025fff45556bb6c44d532178f4324";
 
     private static final int TURN_HTTP_TIMEOUT_MS = 5000;
 
