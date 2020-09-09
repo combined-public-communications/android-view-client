@@ -33,6 +33,8 @@ public class CallManager {
     public Boolean isMinimized = false;
     public SessionDescription offerSdp;
     public ra_call_rcv raCallMsg;
+    public Boolean _isTwilio = false;
+    public String _twilio_token = "";
 
     private static final int TURN_HTTP_TIMEOUT_MS = 5000;
 

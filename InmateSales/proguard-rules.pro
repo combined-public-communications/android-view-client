@@ -19,3 +19,10 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Twilio Programmable Voice
+-keep class com.twilio.** { *; }
+-keep class tvo.webrtc.** { *; }
+-dontwarn tvo.webrtc.**
+-keep class com.twilio.voice.** { *; }
+-keepattributes InnerClasses

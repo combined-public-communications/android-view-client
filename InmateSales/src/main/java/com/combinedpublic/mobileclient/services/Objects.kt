@@ -30,6 +30,8 @@ class ra_answer(val type: String?,
 class ra_answer_snd(val type: String?, val id: Long?, val dst: Long?, val conversationid: Long?,
                     val status: String?)
 
+class gettoken(val type: String?, val id: String?, val param0: Long?, val displayname: String?)
+class gettokenresult(val type: String?, val id: String?, val param0: String?, val status: String?)
 class deviceinfo(val type: String?, val device: String?, val param0: String?, val param1: String?, val id: String?)
 class register_name(val type: String?, val userid: String?, val device: String?, val param0: String?, val id: Int?)
 class registerresult(val type: String?, val userid: String?, val status: String?, val id: String?, val displayname: String?, val balance: String?, val param2: String?)
@@ -67,7 +69,7 @@ class keepalive(val type: String?, val device: String?, val id: Long?,
                  val conversationid: Long?)
 
 class callconnected(val type: String?, val id: String?, val dst: Long?,
-                val conversationid: Long?)
+                val conversationid: Long?, param0: String?, param1: String?)
 
 class keepaliveresult(val type: String?)
 
