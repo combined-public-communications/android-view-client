@@ -27,18 +27,16 @@ class offerPayload(val sdp: String?, val type: String?)
 class ra_answer(val type: String?,
              val id: Long?, val dst: Long?, val conversationid: Long?,
              val payload: JSONObject? )
-class ra_answer_snd(val type: String?, val id: Long?, val dst: Long?, val conversationid: Long?,
+class ra_answer_snd(val type: String?, val param2: String?, val id: Long?, val dst: Long?, val conversationid: Long?,
                     val status: String?)
 
-class gettoken(val type: String?, val id: String?, val param0: Long?, val displayname: String?)
-class gettokenresult(val type: String?, val id: String?, val param0: String?, val status: String?)
 class deviceinfo(val type: String?, val device: String?, val param0: String?, val param1: String?, val id: String?)
-class register_name(val type: String?, val userid: String?, val device: String?, val param0: String?, val id: Int?)
+class register_name(val type: String?, val userid: String?, val device: String?, val param0: String?, val id: Int?, val param2: String?, val param3: String?)
 class registerresult(val type: String?, val userid: String?, val status: String?, val id: String?, val displayname: String?, val balance: String?, val param2: String?)
 class registerresultdesc(val type: String?, val userid: String?, val status: String?, val statusdesc: String?)
 class getpeerlist(val type: String?, val device: String?, val userid: String?, val id: String?)
 class hangup(val type: String?, val device: String?, val id: String?, val dst: String?, val conversationid: String?)
-class ra_call(val type: String?, val device: String?, val id: String?, val dst: String?)
+class ra_call(val type: String?, val device: String?, var token: String?, var param2: String?, val id: String?, val dst: String?)
 class ra_callresult(val type: String?, val id: String?, val dst: String?, val conversationid: String?,
                     val status: String?, val param0: String?, val param1: String?,
                     val param2: String?, val param3: String?, val displayname: String?)
@@ -52,6 +50,7 @@ class ra_reject(val type: String?, val payload: String?, val param0: String?, va
                 val conversationid: Long?, val userid: Long?, val inmateid: Long?,
                 val visitationid: Long?)
 class ra_answer_rcv(val type: String?, val payload: String?, val param0: String?, val param1: String?,
+                    var param2: String?,
                 val param3: String?, val status: String?, val displayname: String?,
                 val statusdesc: String?, val extensionid: String?, val personid: String?,val device: String?,
                 val id: Long?, val dst: Long?,
@@ -69,9 +68,14 @@ class keepalive(val type: String?, val device: String?, val id: Long?,
                  val conversationid: Long?)
 
 class callconnected(val type: String?, val id: String?, val dst: Long?,
-                val conversationid: Long?, param0: String?, param1: String?)
+                val conversationid: Long?)
 
 class keepaliveresult(val type: String?)
+
+class gettoken(val type: String?, val displayname: String?, val id: Long?, val conversationid: Long?)
+
+class gettokenresult(val type: String?, val status: String?, val payload: String?, val param0: String?)
+
 
 class candidate(val type: String?, val param0: String?, val status: String?,
                 val displayname: String?, val statusdesc: String?, val extensionid: String?, val personid: String?,

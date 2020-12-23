@@ -17,6 +17,7 @@ import com.beust.klaxon.Klaxon
 import com.combinedpublic.mobileclient.Classes.CallManager
 import com.combinedpublic.mobileclient.Classes.Configuration
 import com.combinedpublic.mobileclient.Classes.CpcApplication
+import com.combinedpublic.mobileclient.Classes.CpcApplication.IS_APP_IN_FOREGROUND
 import com.combinedpublic.mobileclient.Classes.User
 import com.combinedpublic.mobileclient.Main
 import com.combinedpublic.mobileclient.R.drawable
@@ -70,11 +71,15 @@ class ConnectionManager : Service() {
                 userNameTemp = login
                 userPassTemp = password
                 Log.d(LOG_TAG,"We Get login message log and pass is : "+login+" ,"+password)
-                val register = register_name("register_name",login,User.getInstance().device,password,0)
+                val register = register_name("register_name",login,User.getInstance().device,password,0,
+                        User.getInstance()._isSupportTwilio, User.getInstance()._androidVersion)
                 var message = gson.toJson(register)
                 mWebSocketClient!!.sendText(message)
 
                 suspendApp()
+            }
+            else if (action == "sendCallConnected") {
+                sendCallConnected()
             }
             else if (action == "logOff") {
                 val bye = bye(user.id.toString(),"test")
@@ -109,10 +114,17 @@ class ConnectionManager : Service() {
 
                 val contactId = intent.getStringExtra("contactId")
                 callManager._contactId = contactId.toLong()
-                val racallMsg = ra_call("ra_call",user.device,user.id,contactId)
+                val racallMsg = ra_call("ra_call", user.device, user.token, user._isSupportTwilio, user.id, contactId)
                 var message = gson.toJson(racallMsg)
                 Log.d(LOG_TAG,"Send ra_call message") //send to \""+ contactId +"\" : "+message)
                 mWebSocketClient!!.sendText(message)
+
+                if (user._isTwilioEnabled && ! callManager._isInitiator) { //&& !CallManager.callManager._isGetTokenCompleted
+
+                    sendGetToken()
+
+                    callManager._isGetTokenCompleted = true
+                }
 
             }
             else if (action == "repeatRaCall") {
@@ -171,27 +183,10 @@ class ConnectionManager : Service() {
                 val message = gson.toJson(candidateMsg)
                 mWebSocketClient!!.sendText(message)
                 Log.d(LOG_TAG,"Send candidate")
-
-                if (!callManager._isInitiator && callManager._isTwilio) {
-                    // Send gettoken msg
-                    val gettokenObj = gettoken("gettoken", user.id, callManager._conversationId, user.name)
-                    var message = gson.toJson(gettokenObj)
-                    mWebSocketClient!!.sendText(message)
-                }
             }
             else if (action == "sendCallconnected") {
 
-                var callconnectedMsg: callconnected? = null
-
-                callconnectedMsg = if (callManager._isTwilio) {
-                    callconnected("callconnected",user.id,callManager._contactId,callManager._conversationId, callManager._twilio_token, callManager._twilio_room_sid)
-                } else {
-                    callconnected("callconnected",user.id,callManager._contactId,callManager._conversationId, "", "")
-                }
-
-                val message = gson.toJson(callconnectedMsg)
-                mWebSocketClient!!.sendText(message)
-                Log.d(LOG_TAG,"Send callconnected")
+                sendCallConnected()
             }
             else if (action == "sendAnswer") {
 
@@ -256,6 +251,14 @@ class ConnectionManager : Service() {
                 startClient()
             }
         }
+    }
+
+    fun sendCallConnected() {
+        val callconnectedMsg = callconnected("callconnected", user.id, callManager._contactId, callManager._conversationId)
+
+        val message = gson.toJson(callconnectedMsg)
+        mWebSocketClient!!.sendText(message)
+        Log.d(LOG_TAG, "Send callconnected")
     }
 
     fun showToast(str: String){
@@ -342,7 +345,6 @@ class ConnectionManager : Service() {
 
         startClient()
         startCheckInternetConnectionTask()
-
     }
 
     private fun startForeground() {
@@ -427,7 +429,7 @@ class ConnectionManager : Service() {
     }
 
     fun startService(){
-        if (CpcApplication.IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
+        if (IS_APP_IN_FOREGROUND && !User.getInstance()._isService) {
 
             var intent = Intent(this, ConnectionManager::class.java)
 
@@ -477,7 +479,6 @@ class ConnectionManager : Service() {
             false
         }
 }
-
 
     fun startClient() {
 
@@ -660,19 +661,50 @@ class ConnectionManager : Service() {
 
                                             callManager.raCallMsg = ra_call_rcvMsg
 
-                                            if (ra_call_rcvMsg!!.param2 == "online_twilio") {
-                                                callManager._isTwilio = true
-                                                // Set Twilio Type
-                                            } else {
-                                                continueRaCall(ra_call_rcvMsg!!)
-                                            }
+                                            continueRaCall(ra_call_rcvMsg!!)
 
+
+                                            if (ra_call_rcvMsg.param2 == "online_twilio") {
+                                                // Enable Twilio
+                                                user._isTwilioEnabled = true
+                                                user.roomName = ra_call_rcvMsg.conversationid
+                                            }
                                         }
 
                                     } catch (e: JSONException) {
                                         Log.d(LOG_TAG,"error is "+e.toString())
                                     }
 
+                                }
+                                else if (type == "gettokenresult") {
+                                    Log.d(LOG_TAG,"(TWILIO) Received gettokenresult")
+
+                                    var gettokenresult_rcvMsg: gettokenresult? = null
+
+                                    try{
+                                        gettokenresult_rcvMsg = Klaxon()
+                                                .parse<gettokenresult>(text)
+
+                                        if (gettokenresult_rcvMsg != null && gettokenresult_rcvMsg.status == "ok") {
+                                            user.accessToken = gettokenresult_rcvMsg.payload
+                                            user.roomName = gettokenresult_rcvMsg.param0
+
+                                            Log.d(LOG_TAG, "(TWILIO) gettokenresult - token : ${user.accessToken}" +
+                                                    "\n - room : ${user.roomName}")
+
+                                            val intent = Intent()
+                                            intent.action = "gettokenresult"
+                                            sendBroadcast(intent)
+
+                                            Log.d(LOG_TAG,"(TWILIO) Send gettokenresult Broadcast")
+
+                                        } else {
+                                            Log.d(LOG_TAG,"(TWILIO) gettokenresult failed: " + gettokenresult_rcvMsg!!.status)
+                                        }
+
+                                    } catch (e: JSONException) {
+                                        Log.d(LOG_TAG,"(TWILIO) error is "+e.toString())
+                                    }
                                 }
                                 else if (type == "deviceinforesult") {
 
@@ -693,20 +725,18 @@ class ConnectionManager : Service() {
                                                     .parse<ra_callresult>(text)
 
                                             if (ra_callresultMsg!!.status == "ok") {
-
-                                                if (ra_callresultMsg!!.param2 == "online_twilio") {
-                                                    callManager._isTwilio = true
-                                                    // Set Twilio Type
-                                                } else {
-                                                    callManager._conversationId = ra_callresultMsg!!.conversationid!!.toLong()
-                                                    Log.d(LOG_TAG,"ra_callresult status is ok , get conversationid")
-                                                }
-
-
-
-
+                                                callManager._conversationId = ra_callresultMsg!!.conversationid!!.toLong()
+                                                Log.d(LOG_TAG,"ra_callresult status is ok , get conversationid")
                                             } else {
                                                 Log.d(LOG_TAG,"ra_callresult status is not ok , "+ra_callresultMsg)
+                                            }
+
+                                            if (ra_callresultMsg.param2 == "online_twilio") {
+                                                User.getInstance()._isTwilioEnabled = true
+                                            }
+
+                                            if (User.getInstance()._isTwilioEnabled) {
+                                                User.getInstance().roomName = ra_callresultMsg.conversationid!!
                                             }
 
                                         } catch (e: JSONException) {
@@ -758,11 +788,24 @@ class ConnectionManager : Service() {
                                 else if (type == "ra_answer") {
 
                                     Log.d(LOG_TAG,"Received ra_answer")
+
                                     val intent = Intent()
                                     intent.action = "reject"
                                     sendBroadcast(intent)
 
                                     Log.d(LOG_TAG,"Send call")
+
+
+                                    var ra_answerMsg: ra_answer_rcv? = null
+                                    try{
+                                        ra_answerMsg = Klaxon()
+                                                .parse<ra_answer_rcv>(text)
+
+
+                                    } catch (e: JSONException) {
+                                        Log.d(LOG_TAG,"error is "+e.toString())
+                                    }
+
 
                                     val callObj = call("call", user.id.toLong(), callManager._contactId.toLong(), callManager._conversationId.toLong())
                                     var message = gson.toJson(callObj)
@@ -782,6 +825,9 @@ class ConnectionManager : Service() {
                                         if (callresultMsg!!.status == "ok" && callManager._conversationId.toString() == callresultMsg.conversationid) {
                                             Log.d(LOG_TAG,"callresultMsg status is ok , start KeepAlive")
                                             startKeepAliveTask()
+
+                                            sendGetToken()
+
                                         } else {
                                             Log.d(LOG_TAG,"callresultMsg bad status or unknow _conversationId , "+callresultMsg)
                                         }
@@ -855,7 +901,12 @@ class ConnectionManager : Service() {
                                     }
                                 }
                                 else if (type == "call") {
-                                    Log.d(LOG_TAG, "Received call")
+                                    Log.d(LOG_TAG, "(TWILIO) Received call - SENDING gettoken")
+
+                                    if (User.getInstance()._isTwilioEnabled && !CallManager.getInstance()._isInitiator) {
+                                        // TODO: REMOVE BECAUSE IN DOC WE DONT HAVE THIS
+                                        sendGetToken()
+                                    }
 
                                 }
                                 else if (type == "candidate") {
@@ -867,48 +918,12 @@ class ConnectionManager : Service() {
                                     intent.putExtra("candidate",text)
                                     sendBroadcast(intent)
 
-                                    if (callManager._isInitiator && callManager._isTwilio) {
-                                        // Send gettoken msg
-                                        val gettokenObj = gettoken("gettoken", user.id, callManager._conversationId, user.name)
-                                        var message = gson.toJson(gettokenObj)
-                                        mWebSocketClient!!.sendText(message)
-                                    }
-
                                 }
                                 else if (type == "logout") {
                                     Log.d(LOG_TAG,"Unauthorized because \"Logged in from another device.\" make logoff")
                                     val intent = Intent()
                                     intent.action = "UnauthorizedDevice"
                                     sendBroadcast(intent)
-                                }
-                                else if (type == "gettokenresult") {
-                                    // Got gettokenresult
-                                    Log.d(LOG_TAG,"Received gettokenresult")
-                                    var gettokenresultMsg: gettokenresult? = null
-                                    try{
-                                        gettokenresultMsg = Klaxon()
-                                                .parse<gettokenresult>(text)
-
-                                        if (gettokenresultMsg!!.status == "ok") {
-                                            Log.d(LOG_TAG,"gettokenresultMsg status is ok.")
-                                            val twilio_token = gettokenresultMsg.param0
-                                            callManager._twilio_token = twilio_token
-                                        } else {
-                                            Log.d(LOG_TAG,"gettokenresultMsg bad status")
-                                        }
-
-                                    } catch (e: JSONException) {
-                                        Log.d(LOG_TAG,"error is "+e.toString())
-                                    }
-                                }
-                                else if (type == "callconnectedresult") {
-                                    Log.d(LOG_TAG, "Got callconnectedresult")
-                                    if (!callManager._isInitiator) {
-                                        val intent = Intent()
-                                        intent.action = "sendCallconnected"
-                                        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-                                        sendBroadcast(intent)
-                                    }
                                 }
                                 else {
                                     Log.d(LOG_TAG,"Error , received message is empty")
@@ -924,7 +939,7 @@ class ConnectionManager : Service() {
 
                     override fun onDisconnected(websocket: WebSocket?, serverCloseFrame: WebSocketFrame?, clientCloseFrame: WebSocketFrame?, closedByServer: Boolean) {
                         super.onDisconnected(websocket, serverCloseFrame, clientCloseFrame, closedByServer)
-                        Log.d(LOG_TAG,"WebSocket is onDisconnected ")
+                        Log.d(LOG_TAG,"WebSocket is onDisconnected")
 
                         val intent = Intent()
                         intent.action = "suspendApp"
@@ -932,9 +947,13 @@ class ConnectionManager : Service() {
                         stopGetPeerListTask()
                         stopKeepAliveTask()
                         if (!CallManager.getInstance().isMinimized) {
-                            startClient()
+                            val intent = Intent()
+                            intent.action = "startClient"
+                            sendBroadcast(intent)
                         }
+
                     }
+
                     override fun onError(websocket: WebSocket?, cause: WebSocketException?) {
                         super.onError(websocket, cause)
                         Log.d(LOG_TAG, "WebSocket Error is: " + cause.toString())
@@ -943,11 +962,15 @@ class ConnectionManager : Service() {
                         intent.action = "suspendApp"
                         sendBroadcast(intent)
                         if (isInternetConnection){
-                            startClient()
+                            val intent = Intent()
+                            intent.action = "startClient"
+                            sendBroadcast(intent)
                         }
                     }
                 })
                 .connectAsynchronously()
+
+
     }
 
     internal fun onSuccessful() {
@@ -997,7 +1020,10 @@ class ConnectionManager : Service() {
         val hangup = hangup("hangup", device, id, contactId, conversationId)
         var message = gson.toJson(hangup)
         mWebSocketClient!!.sendText(message)
-        roomState = ConnectionState.CLOSED
+
+        if (!user._isTwilioEnabled) {
+            roomState = ConnectionState.CLOSED
+        }
 
         Log.d(LOG_TAG,"Send HangUp message")
     }
@@ -1093,12 +1119,31 @@ class ConnectionManager : Service() {
         sendBroadcast(intent)
 
         Log.d(LOG_TAG,"Initiate ra_answer message to send")
-        val answerMsg = ra_answer_snd("ra_answer",user.id.toLong(),
+        val answerMsg = ra_answer_snd("ra_answer", user._isSupportTwilio, user.id.toLong(),
                 callManager._contactId,
                 callManager._conversationId, "ok")
         val message = gson.toJson(answerMsg)
         mWebSocketClient!!.sendText(message)
         Log.d(LOG_TAG,"Send ra_answer and start call")
+
+        if (user._isTwilioEnabled && callManager._isInitiator) {
+            // && !CallManager.callManager._isGetTokenInitiatorCompleted
+            sendGetToken()
+
+            callManager._isGetTokenInitiatorCompleted = true
+        }
+
+    }
+
+
+    fun sendGetToken() {
+
+        Log.d(LOG_TAG, "(TWILIO) sendGetToken called")
+
+        val gettokenObj = gettoken("gettoken", callManager._contactName, user.id.toLong(), callManager._conversationId.toLong())
+
+        val message = gson.toJson(gettokenObj)
+        mWebSocketClient!!.sendText(message)
 
     }
 

@@ -27,15 +27,16 @@ public class CallManager {
     public Long _contactId;
     public Long _conversationId;
     public String _contactName;
-    public Boolean _isInitiator;
+    public Boolean _isInitiator = false;
     public Boolean _isIncommingStarted = false;
     public Boolean isStarted = false;
     public Boolean isMinimized = false;
     public SessionDescription offerSdp;
     public ra_call_rcv raCallMsg;
-    public Boolean _isTwilio = false;
-    public String _twilio_token = "";
-    public String _twilio_room_sid = "AC06e025fff45556bb6c44d532178f4324";
+
+
+    public Boolean _isGetTokenInitiatorCompleted = false;
+    public Boolean _isGetTokenCompleted = false;
 
     private static final int TURN_HTTP_TIMEOUT_MS = 5000;
 

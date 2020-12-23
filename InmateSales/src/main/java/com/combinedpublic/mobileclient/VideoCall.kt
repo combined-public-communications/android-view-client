@@ -1,10 +1,14 @@
 package com.combinedpublic.mobileclient
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Bundle
+import android.preference.PreferenceManager
 import android.util.Log
 import android.view.View
 import android.view.Window
@@ -12,25 +16,35 @@ import android.view.WindowManager
 import android.widget.ImageButton
 import android.widget.RelativeLayout
 import android.widget.Toast
-import androidx.annotation.MainThread
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.beust.klaxon.Klaxon
-import com.combinedpublic.mobileclient.Classes.CallManager
-import com.combinedpublic.mobileclient.Classes.Configuration
+import com.twilio.audioswitch.AudioDevice
+import com.twilio.audioswitch.AudioSwitch
+import com.twilio.video.*
+import com.twilio.video.VideoTrack
+import kotlinx.android.synthetic.main.activity_video_call.*
+import org.json.JSONException
+import org.json.JSONObject
+import org.webrtc.*
+import org.webrtc.StatsReport
+import org.webrtc.VideoCapturer
+import com.combinedpublic.mobileclient.Classes.*
 import com.combinedpublic.mobileclient.WebRTC.AppRTCAudioManager
 import com.combinedpublic.mobileclient.WebRTC.AppRTCClient
 import com.combinedpublic.mobileclient.WebRTC.CallFragment.OnCallEvents
 import com.combinedpublic.mobileclient.WebRTC.PeerConnectionClient
 import com.combinedpublic.mobileclient.services.newCandidate
-import org.json.JSONException
-import org.json.JSONObject
-import org.webrtc.*
+import kotlin.properties.Delegates
 
 class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents, OnCallEvents {
 
 
     var LOG_TAG = "VideoCallLogs"
+
+    private val CAMERA_MIC_PERMISSION_REQUEST_CODE = 1
 
     var hangUpBtn:ImageButton? = null
     var speakerBtn:ImageButton? = null
@@ -56,6 +70,7 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
     private var isSwappedFeeds: Boolean = false
     private var activityRunning: Boolean = true
     private var isFullScreen: Boolean = true
+    private var _isTwilioStarted: Boolean = false
     // Controls
     private var isAnswerSended: Boolean = false
 
@@ -89,6 +104,615 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
     val EXTRA_ENABLE_RTCEVENTLOG = "org.appspot.apprtc.ENABLE_RTCEVENTLOG"
     val EXTRA_USE_LEGACY_AUDIO_DEVICE = "org.appspot.apprtc.USE_LEGACY_AUDIO_DEVICE"
 
+    // Twilio region
+    /*
+     * Twilio - A Room represents communication between a local participant and one or more participants.
+     */
+    private var room: Room? = null
+    private var localParticipant: LocalParticipant? = null
+
+    /*
+     * Twilio - AudioCodec and VideoCodec represent the preferred codec for encoding and decoding audio and
+     * video.
+     */
+    private val audioCodec: AudioCodec
+        get() {
+            val audioCodecName = sharedPreferences.getString(Settings.PREF_AUDIO_CODEC,
+                    Settings.PREF_AUDIO_CODEC_DEFAULT)
+
+            return when (audioCodecName) {
+                IsacCodec.NAME -> IsacCodec()
+                OpusCodec.NAME -> OpusCodec()
+                PcmaCodec.NAME -> PcmaCodec()
+                PcmuCodec.NAME -> PcmuCodec()
+                G722Codec.NAME -> G722Codec()
+                else -> OpusCodec()
+            }
+        }
+    private val videoCodec: VideoCodec
+        get() {
+            val videoCodecName = sharedPreferences.getString(Settings.PREF_VIDEO_CODEC,
+                    Settings.PREF_VIDEO_CODEC_DEFAULT)
+
+            return when (videoCodecName) {
+                Vp8Codec.NAME -> {
+                    val simulcast = sharedPreferences.getBoolean(
+                            Settings.PREF_VP8_SIMULCAST,
+                            Settings.PREF_VP8_SIMULCAST_DEFAULT)
+                    Vp8Codec(simulcast)
+                }
+                H264Codec.NAME -> H264Codec()
+                Vp9Codec.NAME -> Vp9Codec()
+                else -> Vp8Codec()
+            }
+        }
+
+    private val enableAutomaticSubscription: Boolean
+        get() {
+            return sharedPreferences.getBoolean(Settings.PREF_ENABLE_AUTOMATIC_SUBSCRIPTION, Settings.PREF_ENABLE_AUTOMATIC_SUBCRIPTION_DEFAULT)
+        }
+
+    /*
+     * Twilio - Encoding parameters represent the sender side bandwidth constraints.
+     */
+    private val encodingParameters: EncodingParameters
+        get() {
+            val defaultMaxAudioBitrate = Settings.PREF_SENDER_MAX_AUDIO_BITRATE_DEFAULT
+            val defaultMaxVideoBitrate = Settings.PREF_SENDER_MAX_VIDEO_BITRATE_DEFAULT
+            val maxAudioBitrate = Integer.parseInt(
+                    sharedPreferences.getString(Settings.PREF_SENDER_MAX_AUDIO_BITRATE,
+                            defaultMaxAudioBitrate) ?: defaultMaxAudioBitrate
+            )
+            val maxVideoBitrate = Integer.parseInt(
+                    sharedPreferences.getString(Settings.PREF_SENDER_MAX_VIDEO_BITRATE,
+                            defaultMaxVideoBitrate) ?: defaultMaxVideoBitrate
+            )
+
+            return EncodingParameters(maxAudioBitrate, maxVideoBitrate)
+        }
+
+    /*
+     * Twilio - Room events listener
+     */
+    private val roomListener = object : Room.Listener {
+        override fun onConnected(room: Room) {
+            localParticipant = room.localParticipant
+            Log.d(LOG_TAG, "(TWILIO) Connected to room :  ${room.name}")
+            title = room.name
+
+            // Only one participant is supported
+            room.remoteParticipants?.firstOrNull()?.let { addRemoteParticipant(it) }
+        }
+
+        override fun onReconnected(room: Room) {
+            Log.d(LOG_TAG, "(TWILIO) Connected to ${room.name}")
+            //reconnectingProgressBar.visibility = View.GONE;
+        }
+
+        override fun onReconnecting(room: Room, twilioException: TwilioException) {
+            //videoStatusTextView.text = "Reconnecting to ${room.name}"
+            Log.d(LOG_TAG, "(TWILIO) Reconnecting to ${room.name}")
+            //reconnectingProgressBar.visibility = View.VISIBLE;
+        }
+
+        override fun onConnectFailure(room: Room, e: TwilioException) {
+            //videoStatusTextView.text = "Failed to connect"
+            Log.d(LOG_TAG, "(TWILIO) Failed to connect")
+            audioSwitch!!.deactivate()
+        }
+
+        override fun onDisconnected(room: Room, e: TwilioException?) {
+            localParticipant = null
+            //videoStatusTextView.text = "Disconnected from ${room.name}"
+            Log.d(LOG_TAG, "(TWILIO) Disconnected from ${room.name}")
+            //reconnectingProgressBar.visibility = View.GONE;
+            this@VideoCall.room = null
+            // Only reinitialize the UI if disconnect was not called from onDestroy()
+            if (!disconnectedFromOnDestroy) {
+                audioSwitch!!.deactivate()
+                moveLocalVideoToPrimaryView()
+            }
+        }
+
+        override fun onParticipantConnected(room: Room, participant: RemoteParticipant) {
+            addRemoteParticipant(participant)
+            Log.d(LOG_TAG, "(TWILIO) onParticipantConnected")
+
+        }
+
+        override fun onParticipantDisconnected(room: Room, participant: RemoteParticipant) {
+            removeRemoteParticipant(participant)
+            Log.d(LOG_TAG, "(TWILIO) onParticipantDisconnected")
+        }
+
+        override fun onRecordingStarted(room: Room) {
+            /*
+             * Indicates when media shared to a Room is being recorded. Note that
+             * recording is only available in our Group Rooms developer preview.
+             */
+            Log.d(LOG_TAG, "(TWILIO) onRecordingStarted")
+        }
+
+        override fun onRecordingStopped(room: Room) {
+            /*
+             * Indicates when media shared to a Room is no longer being recorded. Note that
+             * recording is only available in our Group Rooms developer preview.
+             */
+            Log.d(LOG_TAG, "(TWILIO) onRecordingStopped")
+        }
+    }
+
+    /*
+     * Twilio - RemoteParticipant events listener
+     */
+    private val participantListener = object : RemoteParticipant.Listener {
+        override fun onAudioTrackPublished(remoteParticipant: RemoteParticipant,
+                                           remoteAudioTrackPublication: RemoteAudioTrackPublication) {
+            Log.i(LOG_TAG, "(TWILIO) onAudioTrackPublished: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteAudioTrackPublication: sid=${remoteAudioTrackPublication.trackSid}, " +
+                    "enabled=${remoteAudioTrackPublication.isTrackEnabled}, " +
+                    "subscribed=${remoteAudioTrackPublication.isTrackSubscribed}, " +
+                    "name=${remoteAudioTrackPublication.trackName}]")
+            //videoStatusTextView.text = "onAudioTrackAdded"
+            Log.d(LOG_TAG, "(TWILIO) onAudioTrackAdded")
+        }
+
+        override fun onAudioTrackUnpublished(remoteParticipant: RemoteParticipant,
+                                             remoteAudioTrackPublication: RemoteAudioTrackPublication) {
+            Log.i(LOG_TAG, "(TWILIO) onAudioTrackUnpublished: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteAudioTrackPublication: sid=${remoteAudioTrackPublication.trackSid}, " +
+                    "enabled=${remoteAudioTrackPublication.isTrackEnabled}, " +
+                    "subscribed=${remoteAudioTrackPublication.isTrackSubscribed}, " +
+                    "name=${remoteAudioTrackPublication.trackName}]")
+            //videoStatusTextView.text = "onAudioTrackRemoved"
+            Log.d(LOG_TAG, "(TWILIO) onAudioTrackRemoved")
+        }
+
+        override fun onDataTrackPublished(remoteParticipant: RemoteParticipant,
+                                          remoteDataTrackPublication: RemoteDataTrackPublication) {
+            Log.i(LOG_TAG, "(TWILIO) onDataTrackPublished: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteDataTrackPublication: sid=${remoteDataTrackPublication.trackSid}, " +
+                    "enabled=${remoteDataTrackPublication.isTrackEnabled}, " +
+                    "subscribed=${remoteDataTrackPublication.isTrackSubscribed}, " +
+                    "name=${remoteDataTrackPublication.trackName}]")
+           //videoStatusTextView.text = "onDataTrackPublished"
+            Log.d(LOG_TAG, "(TWILIO) onDataTrackPublished")
+        }
+
+        override fun onDataTrackUnpublished(remoteParticipant: RemoteParticipant,
+                                            remoteDataTrackPublication: RemoteDataTrackPublication) {
+            Log.i(LOG_TAG, "(TWILIO) onDataTrackUnpublished: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteDataTrackPublication: sid=${remoteDataTrackPublication.trackSid}, " +
+                    "enabled=${remoteDataTrackPublication.isTrackEnabled}, " +
+                    "subscribed=${remoteDataTrackPublication.isTrackSubscribed}, " +
+                    "name=${remoteDataTrackPublication.trackName}]")
+            //videoStatusTextView.text = "onDataTrackUnpublished"
+            Log.d(LOG_TAG, "(TWILIO) onDataTrackUnpublished")
+        }
+
+        override fun onVideoTrackPublished(remoteParticipant: RemoteParticipant,
+                                           remoteVideoTrackPublication: RemoteVideoTrackPublication) {
+            Log.i(LOG_TAG, "(TWILIO) onVideoTrackPublished: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteVideoTrackPublication: sid=${remoteVideoTrackPublication.trackSid}, " +
+                    "enabled=${remoteVideoTrackPublication.isTrackEnabled}, " +
+                    "subscribed=${remoteVideoTrackPublication.isTrackSubscribed}, " +
+                    "name=${remoteVideoTrackPublication.trackName}]")
+            //videoStatusTextView.text = "onVideoTrackPublished"
+            Log.d(LOG_TAG, "(TWILIO) onVideoTrackPublished")
+
+        }
+
+        override fun onVideoTrackUnpublished(remoteParticipant: RemoteParticipant,
+                                             remoteVideoTrackPublication: RemoteVideoTrackPublication) {
+            Log.i(LOG_TAG, "(TWILIO) onVideoTrackUnpublished: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteVideoTrackPublication: sid=${remoteVideoTrackPublication.trackSid}, " +
+                    "enabled=${remoteVideoTrackPublication.isTrackEnabled}, " +
+                    "subscribed=${remoteVideoTrackPublication.isTrackSubscribed}, " +
+                    "name=${remoteVideoTrackPublication.trackName}]")
+            //videoStatusTextView.text = "onVideoTrackUnpublished"
+            Log.d(LOG_TAG, "(TWILIO) onVideoTrackUnpublished")
+        }
+
+        override fun onAudioTrackSubscribed(remoteParticipant: RemoteParticipant,
+                                            remoteAudioTrackPublication: RemoteAudioTrackPublication,
+                                            remoteAudioTrack: RemoteAudioTrack) {
+            Log.i(LOG_TAG, "(TWILIO) onAudioTrackSubscribed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteAudioTrack: enabled=${remoteAudioTrack.isEnabled}, " +
+                    "playbackEnabled=${remoteAudioTrack.isPlaybackEnabled}, " +
+                    "name=${remoteAudioTrack.name}]")
+            //videoStatusTextView.text = "onAudioTrackSubscribed"
+            Log.d(LOG_TAG, "(TWILIO) onAudioTrackSubscribed")
+        }
+
+        override fun onAudioTrackUnsubscribed(remoteParticipant: RemoteParticipant,
+                                              remoteAudioTrackPublication: RemoteAudioTrackPublication,
+                                              remoteAudioTrack: RemoteAudioTrack) {
+            Log.i(LOG_TAG, "(TWILIO) onAudioTrackUnsubscribed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteAudioTrack: enabled=${remoteAudioTrack.isEnabled}, " +
+                    "playbackEnabled=${remoteAudioTrack.isPlaybackEnabled}, " +
+                    "name=${remoteAudioTrack.name}]")
+            //videoStatusTextView.text = "onAudioTrackUnsubscribed"
+            Log.d(LOG_TAG, "(TWILIO) onAudioTrackUnsubscribed")
+        }
+
+        override fun onAudioTrackSubscriptionFailed(remoteParticipant: RemoteParticipant,
+                                                    remoteAudioTrackPublication: RemoteAudioTrackPublication,
+                                                    twilioException: TwilioException) {
+            Log.i(LOG_TAG, "(TWILIO) onAudioTrackSubscriptionFailed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteAudioTrackPublication: sid=${remoteAudioTrackPublication.trackSid}, " +
+                    "name=${remoteAudioTrackPublication.trackName}]" +
+                    "[TwilioException: code=${twilioException.code}, " +
+                    "message=${twilioException.message}]")
+            //videoStatusTextView.text = "onAudioTrackSubscriptionFailed"
+            Log.d(LOG_TAG, "(TWILIO) onAudioTrackSubscriptionFailed")
+        }
+
+        override fun onDataTrackSubscribed(remoteParticipant: RemoteParticipant,
+                                           remoteDataTrackPublication: RemoteDataTrackPublication,
+                                           remoteDataTrack: RemoteDataTrack) {
+            Log.i(LOG_TAG, "(TWILIO) onDataTrackSubscribed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteDataTrack: enabled=${remoteDataTrack.isEnabled}, " +
+                    "name=${remoteDataTrack.name}]")
+            //videoStatusTextView.text = "onDataTrackSubscribed"
+            Log.d(LOG_TAG, "(TWILIO) onDataTrackSubscribed")
+        }
+
+        override fun onDataTrackUnsubscribed(remoteParticipant: RemoteParticipant,
+                                             remoteDataTrackPublication: RemoteDataTrackPublication,
+                                             remoteDataTrack: RemoteDataTrack) {
+            Log.i(LOG_TAG, "(TWILIO) onDataTrackUnsubscribed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteDataTrack: enabled=${remoteDataTrack.isEnabled}, " +
+                    "name=${remoteDataTrack.name}]")
+            //videoStatusTextView.text = "onDataTrackUnsubscribed"
+            Log.d(LOG_TAG, "(TWILIO) onDataTrackUnsubscribed")
+        }
+
+        override fun onDataTrackSubscriptionFailed(remoteParticipant: RemoteParticipant,
+                                                   remoteDataTrackPublication: RemoteDataTrackPublication,
+                                                   twilioException: TwilioException) {
+            Log.i(LOG_TAG, "(TWILIO) onDataTrackSubscriptionFailed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteDataTrackPublication: sid=${remoteDataTrackPublication.trackSid}, " +
+                    "name=${remoteDataTrackPublication.trackName}]" +
+                    "[TwilioException: code=${twilioException.code}, " +
+                    "message=${twilioException.message}]")
+            //videoStatusTextView.text = "onDataTrackSubscriptionFailed"
+            Log.d(LOG_TAG, "(TWILIO) onDataTrackSubscriptionFailed")
+        }
+
+        override fun onVideoTrackSubscribed(remoteParticipant: RemoteParticipant,
+                                            remoteVideoTrackPublication: RemoteVideoTrackPublication,
+                                            remoteVideoTrack: RemoteVideoTrack) {
+            Log.i(LOG_TAG, "(TWILIO) onVideoTrackSubscribed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteVideoTrack: enabled=${remoteVideoTrack.isEnabled}, " +
+                    "name=${remoteVideoTrack.name}]")
+            //videoStatusTextView.text = "onVideoTrackSubscribed"
+            Log.d(LOG_TAG, "(TWILIO) onVideoTrackSubscribed")
+            addRemoteParticipantVideo(remoteVideoTrack)
+
+        }
+
+        override fun onVideoTrackUnsubscribed(remoteParticipant: RemoteParticipant,
+                                              remoteVideoTrackPublication: RemoteVideoTrackPublication,
+                                              remoteVideoTrack: RemoteVideoTrack) {
+            Log.i(LOG_TAG, "(TWILIO) onVideoTrackUnsubscribed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteVideoTrack: enabled=${remoteVideoTrack.isEnabled}, " +
+                    "name=${remoteVideoTrack.name}]")
+            //videoStatusTextView.text = "onVideoTrackUnsubscribed"
+            Log.d(LOG_TAG, "(TWILIO) onVideoTrackUnsubscribed")
+            removeParticipantVideo(remoteVideoTrack)
+        }
+
+        override fun onVideoTrackSubscriptionFailed(remoteParticipant: RemoteParticipant,
+                                                    remoteVideoTrackPublication: RemoteVideoTrackPublication,
+                                                    twilioException: TwilioException) {
+            Log.i(LOG_TAG, "(TWILIO) onVideoTrackSubscriptionFailed: " +
+                    "[RemoteParticipant: identity=${remoteParticipant.identity}], " +
+                    "[RemoteVideoTrackPublication: sid=${remoteVideoTrackPublication.trackSid}, " +
+                    "name=${remoteVideoTrackPublication.trackName}]" +
+                    "[TwilioException: code=${twilioException.code}, " +
+                    "message=${twilioException.message}]")
+            //videoStatusTextView.text = "onVideoTrackSubscriptionFailed"
+            Log.d(LOG_TAG, "(TWILIO) onVideoTrackSubscriptionFailed")
+        }
+
+        override fun onAudioTrackEnabled(remoteParticipant: RemoteParticipant,
+                                         remoteAudioTrackPublication: RemoteAudioTrackPublication) {
+            Log.d(LOG_TAG, "(TWILIO) onAudioTrackEnabled")
+        }
+
+        override fun onVideoTrackEnabled(remoteParticipant: RemoteParticipant,
+                                         remoteVideoTrackPublication: RemoteVideoTrackPublication) {
+            Log.d(LOG_TAG, "(TWILIO) onVideoTrackEnabled")
+        }
+
+        override fun onVideoTrackDisabled(remoteParticipant: RemoteParticipant,
+                                          remoteVideoTrackPublication: RemoteVideoTrackPublication) {
+            Log.d(LOG_TAG, "(TWILIO) onVideoTrackDisabled")
+        }
+
+        override fun onAudioTrackDisabled(remoteParticipant: RemoteParticipant,
+                                          remoteAudioTrackPublication: RemoteAudioTrackPublication) {
+            Log.d(LOG_TAG, "(TWILIO) onAudioTrackDisabled")
+        }
+    }
+
+    private var localAudioTrack: LocalAudioTrack? = null
+    private var localVideoTrack: LocalVideoTrack? = null
+    private var alertDialog: AlertDialog? = null
+    private val cameraCapturerCompat by lazy {
+        CameraCapturerCompat(this, CameraCapturerCompat.Source.FRONT_CAMERA)
+    }
+    private val sharedPreferences by lazy {
+        PreferenceManager.getDefaultSharedPreferences(this@VideoCall)
+    }
+
+    /*
+     * Twilio - Audio management
+     */
+    var audioSwitch: AudioSwitch? = null
+
+    private var savedVolumeControlStream by Delegates.notNull<Int>()
+    private lateinit var audioDeviceMenuItem: ImageButton
+
+    private var participantIdentity: String? = null
+    private lateinit var TIlocalVideoView: tvi.webrtc.VideoSink
+    private var disconnectedFromOnDestroy = false
+    private var isSpeakerPhoneEnabled = true
+
+    override fun onRequestPermissionsResult(requestCode: Int,
+                                            permissions: Array<String>,
+                                            grantResults: IntArray) {
+        if (requestCode == CAMERA_MIC_PERMISSION_REQUEST_CODE) {
+            var cameraAndMicPermissionGranted = true
+
+            for (grantResult in grantResults) {
+                cameraAndMicPermissionGranted = cameraAndMicPermissionGranted and
+                        (grantResult == PackageManager.PERMISSION_GRANTED)
+            }
+
+            if (cameraAndMicPermissionGranted) {
+                createAudioAndVideoTracks()
+            } else {
+                Toast.makeText(this,
+                        R.string.permissions_needed,
+                        Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+
+    private fun requestPermissionForCameraAndMicrophone() {
+        if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA) ||
+                ActivityCompat.shouldShowRequestPermissionRationale(this,
+                        Manifest.permission.RECORD_AUDIO)) {
+            Toast.makeText(this,
+                    R.string.permissions_needed,
+                    Toast.LENGTH_LONG).show()
+        } else {
+            ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO),
+                    CAMERA_MIC_PERMISSION_REQUEST_CODE)
+        }
+    }
+
+    private fun checkPermissionForCameraAndMicrophone(): Boolean {
+        val resultCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+        val resultMic = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+
+        return resultCamera == PackageManager.PERMISSION_GRANTED &&
+                resultMic == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun createAudioAndVideoTracks() {
+        // Share your microphone
+        localAudioTrack = LocalAudioTrack.create(this, true)
+
+        // Share your camera
+        localVideoTrack = LocalVideoTrack.create(this,
+                true,
+                cameraCapturerCompat)
+    }
+
+    private fun connectToRoom() {
+
+        Log.d(LOG_TAG, "(TWILIO) connectToRoom called")
+
+        val _token = User.getInstance().accessToken
+        val _roomName = User.getInstance().roomName
+
+        if (_token == "TWILIO_ACCESS_TOKEN" ) { // || _isTwilioStarted
+            Log.d(LOG_TAG,"(TWILIO) TWILIO_ACCESS_TOKEN is bad - $_token - _isTwilioStarted = - $_isTwilioStarted -  | or already twilio started , stop connection to room")
+            return
+        }
+
+        _isTwilioStarted = true
+
+        audioSwitch!!.activate()
+
+        val connectOptionsBuilder = ConnectOptions.Builder(_token)
+                .roomName(_roomName)
+
+        /*
+         * Add local audio track to connect options to share with participants.
+         */
+        localAudioTrack?.let { connectOptionsBuilder.audioTracks(listOf(it)) }
+
+        /*
+         * Add local video track to connect options to share with participants.
+         */
+        localVideoTrack?.let { connectOptionsBuilder.videoTracks(listOf(it)) }
+
+        /*
+         * Set the preferred audio and video codec for media.
+         */
+        connectOptionsBuilder.preferAudioCodecs(listOf(audioCodec))
+        connectOptionsBuilder.preferVideoCodecs(listOf(videoCodec))
+
+        /*
+         * Set the sender side encoding parameters.
+         */
+        connectOptionsBuilder.encodingParameters(encodingParameters)
+
+        /*
+         * Toggles automatic track subscription. If set to false, the LocalParticipant will receive
+         * notifications of track publish events, but will not automatically subscribe to them. If
+         * set to true, the LocalParticipant will automatically subscribe to tracks as they are
+         * published. If unset, the default is true. Note: This feature is only available for Group
+         * Rooms. Toggling the flag in a P2P room does not modify subscription behavior.
+         */
+        connectOptionsBuilder.enableAutomaticSubscription(enableAutomaticSubscription)
+
+        room = Video.connect(this, connectOptionsBuilder.build(), roomListener)
+        //setDisconnectAction()
+    }
+
+    private fun setupAudioTwilio() {
+
+        Log.d(LOG_TAG, "(TWILIO) setupAudioTwilio is called")
+
+        audioSwitch!!.start { audioDevices, selectedDevice ->
+            // TODO update UI with audio devices
+        }
+
+        val devices: List<AudioDevice> = audioSwitch!!.availableAudioDevices
+
+        Log.d(LOG_TAG, "(TWILIO) setupAudioTwilio is called - devices count is - ${devices.toString()}")
+
+        devices.find { it is AudioDevice.Speakerphone }?.let { audioSwitch!!.selectDevice(it) }
+    }
+
+    /*
+     * Called when participant joins the room
+     */
+    private fun addRemoteParticipant(remoteParticipant: RemoteParticipant) {
+        /*
+         * This app only displays video for one additional participant per Room
+         */
+        if (thumbnailVideoView.visibility == View.VISIBLE) {
+            Log.d(LOG_TAG,"(TWILIO) addRemoteParticipant called - Error - Multiple participants are not currently support in this UI")
+            return
+        }
+        participantIdentity = remoteParticipant.identity
+        //videoStatusTextView.text = "Participant $participantIdentity joined"
+
+        /*
+         * Add participant renderer
+         */
+        remoteParticipant.remoteVideoTracks.firstOrNull()?.let { remoteVideoTrackPublication ->
+            if (remoteVideoTrackPublication.isTrackSubscribed) {
+                remoteVideoTrackPublication.remoteVideoTrack?.let { addRemoteParticipantVideo(it) }
+            }
+        }
+
+        /*
+         * Start listening for participant events
+         */
+        remoteParticipant.setListener(participantListener)
+    }
+
+    /*
+     * Set primary view as renderer for participant video track
+     */
+    private fun addRemoteParticipantVideo(videoTrack: VideoTrack) {
+        moveLocalVideoToThumbnailView()
+        primaryVideoView.mirror = false
+        videoTrack.addSink(primaryVideoView)
+
+        runOnUiThread {
+            callConnected()
+
+            /*
+             * If the local video track was released when the app was put in the background, recreate.
+             */
+            localVideoTrack = if (localVideoTrack == null && checkPermissionForCameraAndMicrophone()) {
+                LocalVideoTrack.create(this,
+                        true,
+                        cameraCapturerCompat)
+            } else {
+                localVideoTrack
+            }
+            localVideoTrack?.addSink(TIlocalVideoView)
+
+            /*
+             * If connected to a Room then share the local video track.
+             */
+            localVideoTrack?.let { localParticipant?.publishTrack(it) }
+
+            /*
+             * Update encoding parameters if they have changed.
+             */
+            localParticipant?.setEncodingParameters(encodingParameters)
+
+        }
+    }
+
+    private fun moveLocalVideoToThumbnailView() {
+        if (thumbnailVideoView.visibility == View.GONE) {
+            thumbnailVideoView.visibility = View.VISIBLE
+            with(localVideoTrack) {
+                this?.removeSink(primaryVideoView)
+                this?.addSink(thumbnailVideoView)
+            }
+            TIlocalVideoView = thumbnailVideoView
+            thumbnailVideoView.mirror = cameraCapturerCompat.cameraSource ==
+                    CameraCapturerCompat.Source.FRONT_CAMERA
+        }
+    }
+
+    /*
+     * Called when participant leaves the room
+     */
+    private fun removeRemoteParticipant(remoteParticipant: RemoteParticipant) {
+        //videoStatusTextView.text = "Participant $remoteParticipant.identity left."
+        if (remoteParticipant.identity != participantIdentity) {
+            return
+        }
+
+        /*
+         * Remove participant renderer
+         */
+        remoteParticipant.remoteVideoTracks.firstOrNull()?.let { remoteVideoTrackPublication ->
+            if (remoteVideoTrackPublication.isTrackSubscribed) {
+                remoteVideoTrackPublication.remoteVideoTrack?.let { removeParticipantVideo(it) }
+            }
+        }
+        moveLocalVideoToPrimaryView()
+    }
+
+    private fun removeParticipantVideo(videoTrack: VideoTrack) {
+        videoTrack.removeSink(primaryVideoView)
+    }
+
+    private fun moveLocalVideoToPrimaryView() {
+        if (thumbnailVideoView.visibility == View.VISIBLE) {
+            thumbnailVideoView.visibility = View.GONE
+            with(localVideoTrack) {
+                this?.removeSink(thumbnailVideoView)
+                this?.addSink(primaryVideoView)
+            }
+            TIlocalVideoView = primaryVideoView
+            primaryVideoView.mirror = cameraCapturerCompat.cameraSource ==
+                    CameraCapturerCompat.Source.FRONT_CAMERA
+        }
+    }
+
+    // Twilio endregion
+
     private class ProxyVideoSink : VideoSink {
         private var target: VideoSink? = null
 
@@ -116,6 +740,9 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
             }
             else if (action == "suspendApp") {
                 //some func
+            }
+            else if (action == "gettokenresult") {
+                connectToRoom()
             }
             else if (action == "unSuspendApp") {
                 //some func
@@ -175,7 +802,8 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val filter = IntentFilter()
-        val filters = listOf<String>("suspendApp", "unSuspendApp", "confCompleted", "receivedOffer", "receivedCandidate", "reject")
+        val filters = listOf<String>("suspendApp", "unSuspendApp", "confCompleted", "receivedOffer",
+                "receivedCandidate", "reject", "gettokenresult")
         for (item in filters) {
             filter.addAction(item)
         }
@@ -194,12 +822,24 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
         window.decorView.systemUiVisibility = window.decorView.systemUiVisibility
         setContentView(R.layout.activity_video_call)
 
-        iceConnected = false
-        signalingParameters = null
-
         initUi()
         //Block all ui
         confStarted()
+
+        if (User.getInstance()._isTwilioEnabled) {
+            Log.d(LOG_TAG, "isTwilioEnabled - true - Start Twilio")
+            startTwilio()
+        } else {
+            Log.d(LOG_TAG, "isTwilioEnabled - false - Start WebRTC")
+            startWebRTC()
+        }
+
+    }
+
+    fun startWebRTC() {
+
+        iceConnected = false
+        signalingParameters = null
 
         initVideos()
         getIceServers()
@@ -231,6 +871,40 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
         peerConnectionClient!!.createPeerConnectionFactory(options)
 
         startCall()
+    }
+
+    fun startTwilio() {
+
+        CallManager.getInstance().isStarted = true
+
+        initBaseUi()
+        initTwilioUi()
+
+        audioSwitch = AudioSwitch(applicationContext)
+
+        /*
+        * Set local video view to primary view
+        */
+        TIlocalVideoView = primaryVideoView
+
+        /*
+         * Enable changing the volume using the up/down keys during a conversation
+         */
+        savedVolumeControlStream = volumeControlStream
+        volumeControlStream = AudioManager.STREAM_VOICE_CALL
+
+        /*
+         * Request permissions.
+         */
+        requestPermissionForCameraAndMicrophone()
+
+        /*
+         * Set the initial state of the UI
+         */
+        setupAudioTwilio()
+
+        //connectToRoom()
+
     }
 
     override fun onLocalDescription(sdp: SessionDescription?) {
@@ -273,7 +947,9 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
     override fun onIceFailed() {
         Log.d(LOG_TAG,"onIceFailed :  implemented")
         runOnUiThread{
-            startCall()
+            if (!User.getInstance()._isTwilioEnabled) {
+                startCall()
+            }
         }
     }
 
@@ -302,11 +978,17 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
         Log.d(LOG_TAG,"onPeerConnectionError : not implemented")
     }
 
-    private fun initUi() {
+    private fun initTwilioUi() {
+        /*
+         * Enable/disable the local video track
+         */
+//        TIlocalVideoTrack?.let {
+//            val enable = !it.isEnabled
+//            it.enable(enable)
+//        }!!
+    }
 
-        loadingPanelVideoCall = findViewById(R.id.loadingPanelVideoCall)
-        localVideoView = findViewById(R.id.local_gl_surface_view)
-        remoteVideoView = findViewById(R.id.remote_gl_surface_view)
+    private fun initBaseUi() {
 
         hangUpBtn = findViewById(R.id.hangUpBtn)
         hangUpBtn!!.setOnClickListener {
@@ -327,11 +1009,27 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
         fullScreenBtn!!.setOnClickListener {
             switchFullScreen()
         }
+    }
+
+    private fun initUi() {
+
+        loadingPanelVideoCall = findViewById(R.id.loadingPanelVideoCall)
+        localVideoView = findViewById(R.id.local_gl_surface_view)
+        remoteVideoView = findViewById(R.id.remote_gl_surface_view)
+
+        initBaseUi()
 
         // Swap feeds on local view click.
-        localVideoView.setOnClickListener { setSwappedFeeds(!isSwappedFeeds) }
+        localVideoView.setOnClickListener {
+            if (!User.getInstance()._isTwilioEnabled) {
+                setSwappedFeeds(!isSwappedFeeds)
+            }
 
-        remoteSinks.add(remoteProxyRenderer)
+        }
+
+        if (!User.getInstance()._isTwilioEnabled) {
+            remoteSinks.add(remoteProxyRenderer)
+        }
 
     }
 
@@ -426,29 +1124,6 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
                         "\nUrls is:"+iceServer.urls)
             }
         }
-        /* else {
-            for (iceServer in iceServers) {
-                if (iceServer.password == null) {
-                    val peerIceServer = PeerConnection.IceServer.builder(iceServer.urls).createIceServer()
-                    peerIceServers.add(peerIceServer)
-                } else {
-                    /*val peerIceServer = PeerConnection.IceServer.builder(iceServer.urls)
-                            .setUsername(iceServer.username)
-                            .setPassword(iceServer.password)
-                            .createIceServer()*/
-                    val peerIceServer = PeerConnection.IceServer(iceServer.uri,iceServer.username,iceServer.password)
-
-
-                    /*val peerIceServer = PeerConnection.IceServer.builder(iceServer.urls)
-
-                            .setUsername(iceServer.username)
-                            .setPassword(iceServer.password)
-                            .createIceServer()*/
-
-                    peerIceServers.add(peerIceServer)
-                }
-            }
-        }*/
     }
 
     private fun setSwappedFeeds(isSwappedFeeds:Boolean) {
@@ -490,54 +1165,147 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
      */
 
     override fun onDestroy() {
+
+        Log.d(LOG_TAG,"onDestroy called")
+
         try {
             unregisterReceiver(receiver)
         } catch (e:IllegalArgumentException) {
             Log.d(LOG_TAG,"IllegalArgumentException : "+e.message)
         }
+
+        if (User.getInstance()._isTwilioEnabled) {
+            onDestroyTwilio()
+        }
+
         super.onDestroy()
     }
 
+    private fun onDestroyTwilio() {
+
+        Log.d(LOG_TAG,"onDestroy called (TWILIO)")
+
+
+        /*
+         * Tear down audio management and restore previous volume stream
+         */
+        audioSwitch!!.stop()
+        volumeControlStream = savedVolumeControlStream
+
+        Log.d(LOG_TAG,"audioSwitch.stop called (TWILIO)")
+
+        /*
+         * Always disconnect from the room before leaving the Activity to
+         * ensure any memory allocated to the Room resource is freed.
+         */
+        if (room != null && room!!.state != Room.State.DISCONNECTED) {
+            room!!.disconnect()
+            disconnectedFromOnDestroy = true
+        }
+        Log.d(LOG_TAG,"room.disconnect called (TWILIO)")
+
+        /*
+         * If this local video track is being shared in a Room, remove from local
+         * participant before releasing the video track. Participants will be notified that
+         * the track has been removed.
+         */
+        localVideoTrack?.let { localParticipant?.unpublishTrack(it) }
+        Log.d(LOG_TAG,"localParticipant.unpublishTrack called (TWILIO)")
+
+        /*
+         * Release the local audio and video tracks ensuring any memory allocated to audio
+         * or video is freed.
+         */
+        if (localAudioTrack != null) {
+            localAudioTrack!!.release()
+            localAudioTrack = null
+            Log.d(LOG_TAG,"localAudioTrack.release called (TWILIO)")
+        }
+
+        if (localVideoTrack != null) {
+            localVideoTrack!!.release()
+            localVideoTrack = null
+            Log.d(LOG_TAG,"localVideoTrack.release called (TWILIO)")
+        }
+
+        room = null
+        Log.d(LOG_TAG,"the room is set to null (TWILIO)")
+        audioSwitch = null
+        Log.d(LOG_TAG,"the audioSwitch is set to null (TWILIO)")
+        localAudioTrack = null
+        Log.d(LOG_TAG,"the localAudioTrack is set to null (TWILIO)")
+        localVideoTrack = null
+        Log.d(LOG_TAG,"the localVideoTrack is set to null (TWILIO)")
+
+        User.getInstance()._isTwilioEnabled = false
+    }
+
     private fun didHangUp() {
+
+        Log.d(LOG_TAG,"(TWILIO)(WebRTC) didHangUp is called.")
+
         if (CallManager.getInstance()._conversationId != null) {
 
             sendMsg("hangUpMessage")
 
+            _isTwilioStarted = false
+
             isAnswerSended = false
 
             activityRunning = false
-            remoteProxyRenderer.setTarget(VideoSink { null })
-            localProxyVideoSink.setTarget(VideoSink { null })
 
-            //closeCameraDevice()
+            if (!User.getInstance()._isTwilioEnabled) {
 
-            if (localVideoView != null) {
-                localVideoView.release()
-            }
-            if (remoteVideoView != null) {
-                remoteVideoView.release()
-            }
-            if (peerConnectionClient != null) {
-                peerConnectionClient!!.close()
-                peerConnectionClient = null
+                if (remoteProxyRenderer != null) {
+
+                    remoteProxyRenderer.setTarget(VideoSink { null })
+                }
+
+                if (localProxyVideoSink != null) {
+
+                    localProxyVideoSink.setTarget(VideoSink { null })
+                }
+
+                if (localVideoView != null) {
+                    localVideoView.release()
+                }
+                if (remoteVideoView != null) {
+                    remoteVideoView.release()
+                }
+                if (peerConnectionClient != null) {
+                    peerConnectionClient!!.close()
+                    peerConnectionClient = null
+                }
+
+                if (audioManager != null) {
+                    audioManager!!.stop()
+                    audioManager = null
+                }
+
+                if (iceConnected) {
+                    setResult(RESULT_OK)
+                } else {
+                    setResult(RESULT_CANCELED)
+                }
             }
 
-            if (audioManager != null) {
-                audioManager!!.stop()
-                audioManager = null
+            if (User.getInstance()._isTwilioEnabled) {
+                /*
+                 * Disconnect from room
+                 */
+                room?.disconnect()
+                Log.d(LOG_TAG,"(TWILIO) room.disconnect is called.")
             }
-
-            if (iceConnected) {
-                setResult(RESULT_OK)
-            } else {
-                setResult(RESULT_CANCELED)
-            }
-
 
             CallManager.getInstance().isStarted = false
             if (CallManager.getInstance().isMinimized){
              sendMsg("appPause")
             }
+
+            if (User.getInstance()._isTwilioEnabled) {
+                onDestroyTwilio()
+            }
+
             finish()
 
             intent.action = "unSuspendApp"
@@ -554,7 +1322,7 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
 
     override fun onCameraSwitch() {
         showToast("onCameraSwitch")
-        if (peerConnectionClient != null) {
+        if (peerConnectionClient != null && !User.getInstance()._isTwilioEnabled) {
             peerConnectionClient!!.switchCamera()
         }
     }
@@ -577,19 +1345,50 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
     }
 
     private fun confCompleted() {
-        loadingPanelVideoCall.visibility = View.GONE
+        if (!User.getInstance()._isTwilioEnabled) {
+            loadingPanelVideoCall.visibility = View.GONE
+        }
+
+        if (User.getInstance()._isTwilioEnabled) {
+            hangUpBtn?.isEnabled = true
+            speakerBtn?.isEnabled = true
+            fullScreenBtn?.isEnabled = true
+            switchCamBtn?.isEnabled = true
+            loadingPanelVideoCall.visibility = View.GONE
+        }
+
         window.clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
     }
 
     private fun confStarted() {
-        loadingPanelVideoCall.visibility = View.VISIBLE
+        if (User.getInstance()._isTwilioEnabled) {
+            loadingPanelVideoCall.visibility = View.VISIBLE
+        }
+
+        if (User.getInstance()._isTwilioEnabled) {
+            hangUpBtn?.isEnabled = false
+            speakerBtn?.isEnabled = false
+            fullScreenBtn?.isEnabled = false
+            switchCamBtn?.isEnabled = false
+        }
+
         window.setFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
     }
 
     private fun switchCamera() {
 
-        if (peerConnectionClient!!.videoCapturer != null) {
+        if (User.getInstance()._isTwilioEnabled) {
+            val cameraSource = cameraCapturerCompat.cameraSource
+            cameraCapturerCompat.switchCamera()
+            if (thumbnailVideoView.visibility == View.VISIBLE) {
+                thumbnailVideoView.mirror = cameraSource == CameraCapturerCompat.Source.BACK_CAMERA
+            } else {
+                primaryVideoView.mirror = cameraSource == CameraCapturerCompat.Source.BACK_CAMERA
+            }
+        }
+
+        if (!User.getInstance()._isTwilioEnabled && peerConnectionClient!!.videoCapturer != null) {
             try {
                 if (peerConnectionClient!!.videoCapturer is CameraVideoCapturer) {
                     Log.d(LOG_TAG, "Switch camera")
@@ -601,13 +1400,13 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
             } catch (err:Exception) {
                 Log.d(LOG_TAG,"Camera Switch Error is : "+err.message)
             }
-
         }
+
     }
 
     private fun switchSpeaker() {
 
-        if (audioManager!= null ) {
+        if (!User.getInstance()._isTwilioEnabled && audioManager!= null ) {
             Log.d("AudioDeviceSwitcher",audioManager!!.audioDevices.count().toString()+"audio devices is available")
             if (audioManager!!.audioDevices.count() > 1) {
 
@@ -639,6 +1438,38 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
             else {
                 showToast("We can't find available audio devices")
             }
+        }
+        else if (User.getInstance()._isTwilioEnabled) {
+            // TODO: SWITCH SPEAKER TWILIO
+
+            val devices: List<AudioDevice> = audioSwitch!!.availableAudioDevices
+
+            var _earpiece: AudioDevice? = null
+            var _speakerphone: AudioDevice? = null
+
+            Log.d(LOG_TAG, "(TWILIO) audio devices : ")
+
+            for ( device in devices ) {
+                Log.d(LOG_TAG, "(TWILIO) audio device is : ${device.name}")
+                if (device.name == "Earpiece") {
+                    _earpiece = device
+                } else if ( device.name == "Speakerphone") {
+                    _speakerphone = device
+                }
+            }
+
+            if (audioSwitch!!.selectedAudioDevice != null) {
+                Log.d(LOG_TAG, "(TWILIO) current device is : ${audioSwitch!!.selectedAudioDevice!!.name}")
+            }
+
+            if (audioSwitch!!.selectedAudioDevice!!.name == "Speakerphone") {
+                audioSwitch!!.selectDevice(_earpiece)
+            } else {
+                audioSwitch!!.selectDevice(_speakerphone)
+            }
+
+            Log.d(LOG_TAG, "(TWILIO) selected device is : ${audioSwitch!!.selectedAudioDevice!!.name}")
+
         } else {
             showToast("We can't find available audio devices")
         }
@@ -667,34 +1498,54 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
 
     private fun switchFullScreen() {
        isFullScreen = !isFullScreen
+
+
         if (isFullScreen) {
+
+            if (User.getInstance()._isTwilioEnabled) {
+                fullScreenBtn!!.background = null
+                fullScreenBtn!!.setBackgroundResource(R.drawable.full_screen_return)
+                primaryVideoView.videoScaleType = VideoScaleType.ASPECT_FIT
+
+            } else {
                 fullScreenBtn!!.background = null
                 fullScreenBtn!!.setBackgroundResource(R.drawable.full_screen_return)
                 remoteVideoView.setEnableHardwareScaler(false)
                 remoteVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT,
                         RendererCommon.ScalingType.SCALE_ASPECT_FIT)
                 remoteVideoView.refreshDrawableState()
+            }
 
         } else {
+
+            if (User.getInstance()._isTwilioEnabled) {
+                fullScreenBtn!!.background = null
+                fullScreenBtn!!.setBackgroundResource(R.drawable.full_screen)
+                primaryVideoView.videoScaleType = VideoScaleType.ASPECT_FILL
+
+            } else {
                 fullScreenBtn!!.background = null
                 fullScreenBtn!!.setBackgroundResource(R.drawable.full_screen)
                 remoteVideoView.setEnableHardwareScaler(true)
                 remoteVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FILL,
                         RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                 remoteVideoView.refreshDrawableState()
+            }
         }
 
     }
 
     // Should be called from ui thread
     private fun callConnected() {
-        Log.i(LOG_TAG,"Call connected")
+        Log.i(LOG_TAG,"(TWILIO)(WebRTC) Call connected")
 
         val intent = Intent()
         intent.action = "sendCallconnected"
         intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
         sendBroadcast(intent)
-        setSwappedFeeds(false /* isSwappedFeeds */)
+        if (!User.getInstance()._isTwilioEnabled) {
+            setSwappedFeeds(false /* isSwappedFeeds */)
+        }
         confCompleted()
     }
 
@@ -712,22 +1563,6 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
     private fun captureToTexture(): Boolean {
         return true
     }
-
-    @MainThread private fun closeCameraDevice() {
-    if (peerConnectionClient!!.videoCapturer != null) {
-        try {
-            if (peerConnectionClient!!.videoCapturer is CameraVideoCapturer) {
-                Log.d(LOG_TAG, "Close camera")
-                var cameraVideoCapturer = peerConnectionClient!!.videoCapturer as CameraVideoCapturer
-                cameraVideoCapturer.stopCapture()
-            } else {
-                Log.d(LOG_TAG, "Will not close camera, video caputurer is not a camera")
-            }
-        } catch (err:Exception) {
-            Log.d(LOG_TAG,"Camera Closing Error is : "+err.message)
-        }
-    }
-}
 
     private fun createCameraCapturer(enumerator: CameraEnumerator): VideoCapturer? {
         val deviceNames = enumerator.deviceNames
@@ -754,29 +1589,6 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
             }
         }
         return null
-
-        /*var videoCapturer:VideoCapturer? = null
-        Log.d(LOG_TAG, "Creating capturer using camera2 API.")
-
-        // Creating camera capturer
-        var enumerator = Camera2Enumerator(this)
-        val deviceNames = enumerator.deviceNames
-        Log.d(LOG_TAG, "Looking for back facing cameras.")
-
-
-        for (deviceName in deviceNames) {
-            if (enumerator.isBackFacing(deviceName)) {
-                Log.d(LOG_TAG, "Creating back facing camera capturer.")
-                videoCapturer = enumerator.createCapturer(deviceName, null)
-                break
-            }
-        }
-
-        if (videoCapturer == null) {
-            Log.e(LOG_TAG, "Failed to open camera.")
-            return null
-        }
-        return videoCapturer*/
     }
 
     // Activity interfaces
@@ -795,26 +1607,70 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
         super.onStart()
         activityRunning = true
         Configuration.CombinedPublic.activityVideoCallResumed()
+
         // Video is not paused for screencapture. See onPause.
-        if (peerConnectionClient != null) {
+        if (peerConnectionClient != null && !User.getInstance()._isTwilioEnabled) {
             peerConnectionClient!!.startVideoSource()
         }
     }
 
     override fun onPause() {
-        sendMsg("stopSound")
-        sendMsg("appPause")
-        CallManager.getInstance().isMinimized = true
-        super.onPause()
-        Configuration.CombinedPublic.activityVideoCallPaused()
+        if (User.getInstance()._isTwilioEnabled) {
+            /*
+             * If this local video track is being shared in a Room, remove from local
+             * participant before releasing the video track. Participants will be notified that
+             * the track has been removed.
+             */
+            localVideoTrack?.let { localParticipant?.unpublishTrack(it) }
+
+            /*
+             * Release the local video track before going in the background. This ensures that the
+             * camera can be used by other applications while this app is in the background.
+             */
+            localVideoTrack?.release()
+            localVideoTrack = null
+            super.onPause()
+        } else {
+            sendMsg("stopSound")
+            sendMsg("appPause")
+            CallManager.getInstance().isMinimized = true
+            super.onPause()
+            Configuration.CombinedPublic.activityVideoCallPaused()
+        }
     }
 
     override fun onResume() {
-        sendMsg("stopSound")
-        sendMsg("appResume")
-        CallManager.getInstance().isMinimized = false
-        super.onResume()
-        Configuration.CombinedPublic.activityVideoCallResumed()
+        if (User.getInstance()._isTwilioEnabled) {
+            super.onResume()
+            /*
+             * If the local video track was released when the app was put in the background, recreate.
+             */
+            localVideoTrack = if (localVideoTrack == null && checkPermissionForCameraAndMicrophone()) {
+                LocalVideoTrack.create(this,
+                        true,
+                        cameraCapturerCompat)
+            } else {
+                localVideoTrack
+            }
+            localVideoTrack?.addSink(TIlocalVideoView)
+
+            /*
+             * If connected to a Room then share the local video track.
+             */
+            localVideoTrack?.let { localParticipant?.publishTrack(it) }
+
+            /*
+             * Update encoding parameters if they have changed.
+             */
+            localParticipant?.setEncodingParameters(encodingParameters)
+
+        } else {
+            sendMsg("stopSound")
+            sendMsg("appResume")
+            CallManager.getInstance().isMinimized = false
+            super.onResume()
+            Configuration.CombinedPublic.activityVideoCallResumed()
+        }
     }
 
     fun sendMsg(str: String){
@@ -829,21 +1685,25 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
   }
 
     private fun sendOfferSdp(sdp:SessionDescription) {
-        val intent = Intent()
-        intent.action = "sendOffer"
-        intent.putExtra("type", "offer")
-        intent.putExtra("sdp", sdp.description)
-        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-        sendBroadcast(intent)
+        if (!User.getInstance()._isTwilioEnabled) {
+            val intent = Intent()
+            intent.action = "sendOffer"
+            intent.putExtra("type", "offer")
+            intent.putExtra("sdp", sdp.description)
+            intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+            sendBroadcast(intent)
+        }
     }
 
     private fun sendAnswerSdp(sdp:SessionDescription) {
-        val intent = Intent()
-        intent.action = "sendOffer"
-        intent.putExtra("type", "answer")
-        intent.putExtra("sdp", sdp.description)
-        intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-        sendBroadcast(intent)
+        if (!User.getInstance()._isTwilioEnabled) {
+            val intent = Intent()
+            intent.action = "sendOffer"
+            intent.putExtra("type", "answer")
+            intent.putExtra("sdp", sdp.description)
+            intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+            sendBroadcast(intent)
+        }
     }
 
     private fun sendLocalIceCandidate(candidate: IceCandidate) {
@@ -901,11 +1761,6 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
             ex.printStackTrace()
         }
     }
-
-
-    /*override fun onSaveInstanceState(outState: Bundle?) {
-        super.onSaveInstanceState(outState)
-    }*/
 
 }
 

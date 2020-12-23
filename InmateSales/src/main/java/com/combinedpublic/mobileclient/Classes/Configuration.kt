@@ -1,6 +1,7 @@
 package com.combinedpublic.mobileclient.Classes
 
 import android.os.Build
+import android.util.Log
 
 class Configuration {
     companion object CombinedPublic {
@@ -12,6 +13,13 @@ class Configuration {
         fun wSocket() : String = "wss://wss-view.inmatesales.com:8185"
         fun turnRequestUrl() : String = "https://view.inmatesales.com/visitation/twilio.aspx"
         fun turnRequestBaseUrl() : String = "https://view.inmatesales.com/visitation"
+
+        fun getOSInfo(): String {
+            val versionRelease = Build.VERSION.RELEASE
+            val osInfo = "android " + versionRelease
+            Log.d("Configuration", "- getOSInfo - : $osInfo")
+            return osInfo
+        }
 
         fun isActivityVideoCallVisible(): Boolean {
             return activityVideoCallVisible

@@ -1,5 +1,6 @@
 package com.combinedpublic.mobileclient.Classes;
 
+import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;

@@ -23,6 +23,12 @@ public class User {
     public Boolean _isRestarted = false;
     public Boolean _isCallingShowed = false;
     public Boolean _isMainShowed = false;
+    public String _isSupportTwilio = "support_twilio";
+    public Boolean _isTwilioEnabled = false;
+    public String _androidVersion = Configuration.CombinedPublic.getOSInfo();
+
+    public String accessToken = "TWILIO_ACCESS_TOKEN";
+    public String roomName = "";
 
     public static User getInstance() {
         if (sInstance == null) {
