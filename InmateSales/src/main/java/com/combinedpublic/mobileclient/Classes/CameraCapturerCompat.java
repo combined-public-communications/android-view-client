@@ -108,10 +108,6 @@ public class CameraCapturerCompat implements VideoCapturer {
                         ? idMap.get(Source.BACK_CAMERA)
                         : idMap.get(Source.FRONT_CAMERA);
 
-        if (listener == null) {
-            return;
-        }
-
         if (usingCamera1()) {
             Log.d(LOG_TAG,"(TWILIO) camera1Capturer NewCameraId is " + newCameraId);
             if (camera1Capturer != null) {
