@@ -535,7 +535,7 @@ public class PeerConnectionClient {
             init.maxRetransmitTimeMs = peerConnectionParameters.dataChannelParameters.maxRetransmitTimeMs;
             init.id = peerConnectionParameters.dataChannelParameters.id;
             init.protocol = peerConnectionParameters.dataChannelParameters.protocol;
-            dataChannel = peerConnection.createDataChannel("VisiTelChanel", init);
+            dataChannel = peerConnection.createDataChannel("CPCChanel", init);
         }
         //isInitiator = false;
         // Set INFO libjingle logging.
@@ -844,6 +844,7 @@ public class PeerConnectionClient {
         localVideoTrack.addSink(localRender);
         return localVideoTrack;
     }
+
     private void findVideoSender() {
         for (RtpSender sender : peerConnection.getSenders()) {
             if (sender.track() != null) {
