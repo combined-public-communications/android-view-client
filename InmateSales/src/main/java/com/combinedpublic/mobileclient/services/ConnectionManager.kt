@@ -1,10 +1,12 @@
 package com.combinedpublic.mobileclient.services
 
+import android.Manifest
 import android.app.*
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.IBinder
@@ -13,6 +15,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.beust.klaxon.Klaxon
 import com.combinedpublic.mobileclient.Classes.CallManager
 import com.combinedpublic.mobileclient.Classes.Configuration
@@ -184,7 +187,7 @@ class ConnectionManager : Service() {
                 var callconnectedMsg: callconnected? = null
 
                 callconnectedMsg = if (callManager._isTwilio) {
-                    callconnected("callconnected",user.id,callManager._contactId,callManager._conversationId, callManager._twilio_token, callManager._twilio_room_sid)
+                    callconnected("callconnected",user.id,callManager._contactId,callManager._conversationId, callManager._twilio_token, "twilio room sid??")
                 } else {
                     callconnected("callconnected",user.id,callManager._contactId,callManager._conversationId, "", "")
                 }
@@ -1166,6 +1169,10 @@ class ConnectionManager : Service() {
         if (checkInternetConnectionTimerNew != null) {
             checkInternetConnectionTimerNew!!.cancel()
         }
+    }
+
+    private fun checkPermission(permissionType: String): Boolean {
+        return ContextCompat.checkSelfPermission(this, permissionType) === PackageManager.PERMISSION_GRANTED
     }
 
     inner class CheckInternetConnection : TimerTask() {

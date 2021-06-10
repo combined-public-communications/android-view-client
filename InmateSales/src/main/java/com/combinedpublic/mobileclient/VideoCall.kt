@@ -805,6 +805,9 @@ class VideoCall : AppCompatActivity(), PeerConnectionClient.PeerConnectionEvents
         sendMsg("stopSound")
         sendMsg("appPause")
         CallManager.getInstance().isMinimized = true
+        if (peerConnectionClient != null) {
+            peerConnectionClient!!.stopVideoSource()
+        }
         super.onPause()
         Configuration.CombinedPublic.activityVideoCallPaused()
     }

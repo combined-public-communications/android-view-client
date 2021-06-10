@@ -4,10 +4,8 @@ import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.app.Activity
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,10 +17,13 @@ import android.view.WindowManager
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.view.inputmethod.InputMethodManager
+import android.webkit.URLUtil
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.combinedpublic.mobileclient.Classes.CallManager
 import com.combinedpublic.mobileclient.Classes.Configuration
@@ -35,11 +36,6 @@ import com.eggheadgames.siren.ISirenListener
 import com.eggheadgames.siren.Siren
 import com.eggheadgames.siren.SirenAlertType
 import com.eggheadgames.siren.SirenVersionCheckType
-import com.karumi.dexter.Dexter
-import com.karumi.dexter.MultiplePermissionsReport
-import com.karumi.dexter.PermissionToken
-import com.karumi.dexter.listener.PermissionRequest
-import com.karumi.dexter.listener.multi.MultiplePermissionsListener
 
 
 class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickListener, AdapterView.OnItemSelectedListener {
@@ -47,6 +43,8 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
     internal val LOG_TAG = "MainActivityLogs"
 
     private val SIREN_JSON_DOCUMENT_URL = "https://api.myjson.com/bins/sfrck"
+
+    private val PERMISSION_REQUEST_CODE = 200
 
     lateinit var btn: Button
     lateinit var btnMenu: Button
@@ -89,7 +87,21 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
             }
             else if (action == "incomingCall") {
                 if (!user._isCallingShowed){
-                    handleShowCallingView()
+                    if (!checkPermission(Manifest.permission.CAMERA) ||
+                            !checkPermission(Manifest.permission.RECORD_AUDIO) ||
+                            !checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ||
+                            !checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+
+                        // CLOSE HANGUP REJECT
+
+                        val perms = arrayOf(Manifest.permission.CAMERA,
+                                Manifest.permission.RECORD_AUDIO,
+                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        requestPermission(perms)
+                    } else {
+                        handleShowCallingView()
+                    }
                 }
             }
             else if (action == "startCall") {
@@ -272,8 +284,19 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
     }
 
     fun openUrl(url: String) {
-        intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        startActivity(intent)
+        try {
+            if (!URLUtil.isValidUrl(url)) {
+                showToast("It is not possible to open web page.")
+            } else {
+                //User.getInstance()._isUrlOpen = true
+
+                intent = Intent(Intent.ACTION_VIEW)
+                intent.data = Uri.parse(url)
+                this.startActivity(intent)
+            }
+        } catch (e: ActivityNotFoundException) {
+            showToast("You don't have any browser to open web page.")
+        }
     }
 
     override fun onItemClick(adapterView: AdapterView<*>, view: View, i: Int, l: Long) {
@@ -284,16 +307,29 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
             Log.d("TAG_ContactList", user.contacts!![i].displayname)
 
             if (user.contacts!![i].id!! > 0) {
-                val intent = Intent()
-                intent.action = "call"
-                intent.putExtra("contactId",user.contacts!![i].id!!.toString())
-                intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-                sendBroadcast(intent)
+                if (!checkPermission(Manifest.permission.CAMERA) ||
+                        !checkPermission(Manifest.permission.RECORD_AUDIO) ||
+                        !checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ||
+                        !checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                    val perms = arrayOf(Manifest.permission.CAMERA,
+                            Manifest.permission.RECORD_AUDIO,
+                            Manifest.permission.READ_EXTERNAL_STORAGE,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    requestPermission(perms)
+                } else {
 
-                CallManager.getInstance()._isInitiator = true
-                CallManager.getInstance()._contactName = user.contacts!![i].displayname!!
-                handleShowCallingView()
-                sendMsg("suspendApp")
+                    val intent = Intent()
+                    intent.action = "call"
+                    intent.putExtra("contactId",user.contacts!![i].id!!.toString())
+                    intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+                    sendBroadcast(intent)
+
+                    CallManager.getInstance()._isInitiator = true
+                    CallManager.getInstance()._contactName = user.contacts!![i].displayname!!
+
+                    sendMsg("suspendApp")
+                    handleShowCallingView()
+                }
             }
         }
     }
@@ -456,12 +492,23 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
 
     fun handleShowCallingView() {
 
-        User.getInstance()._isCallingShowed = true
-        User.getInstance()._isUrlOpen = true
-        if (CallManager.getInstance()._isInitiator && checkPerms()) {
-            showCallingViewAsInitiator()
+        if (!checkPermission(Manifest.permission.CAMERA) ||
+                !checkPermission(Manifest.permission.RECORD_AUDIO) ||
+                !checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ||
+                !checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            val perms = arrayOf(Manifest.permission.CAMERA,
+                    Manifest.permission.RECORD_AUDIO,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            requestPermission(perms)
         } else {
-            showCallingViewAsIncomming()
+            User.getInstance()._isCallingShowed = true
+            User.getInstance()._isUrlOpen = true
+            if (CallManager.getInstance()._isInitiator) {
+                showCallingViewAsInitiator()
+            } else {
+                showCallingViewAsIncomming()
+            }
         }
 
     }
@@ -535,29 +582,43 @@ class Main : AppCompatActivity(), View.OnClickListener, AdapterView.OnItemClickL
         sendBroadcast(intent)
     }
 
-    fun checkPerms():Boolean {
-        User.getInstance()._isAllPermsGranted = false
-        Dexter.withActivity(this)
-                .withPermissions(
-                        Manifest.permission.CAMERA,
-                        Manifest.permission.RECORD_AUDIO,
-                        Manifest.permission.READ_EXTERNAL_STORAGE,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                ).withListener(object : MultiplePermissionsListener {
-                    override fun onPermissionsChecked(report: MultiplePermissionsReport) {
-                        Log.d(LOG_TAG,"onPermissionsChecked, report.areAllPermissionsGranted is : " + report.areAllPermissionsGranted())
-                        if (report.areAllPermissionsGranted()) {
-                            User.getInstance()._isAllPermsGranted = true
-                        }
-                    }
+    private fun checkPermission(permissionType: String): Boolean {
+        return ContextCompat.checkSelfPermission(this, permissionType) === PackageManager.PERMISSION_GRANTED
+    }
 
-                    override fun onPermissionRationaleShouldBeShown(permissions: List<PermissionRequest>, token: PermissionToken) {
-                        Log.d(LOG_TAG,"onPermissionRationaleShouldBeShown")
+    private fun requestPermission(permissionArray: Array<String>) {
+        ActivityCompat.requestPermissions(this, permissionArray,
+                PERMISSION_REQUEST_CODE)
+    }
 
-                    }
-                }).check()
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        when (requestCode) {
+            PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(applicationContext, "Permission Granted", Toast.LENGTH_SHORT).show()
 
-        return User.getInstance()._isAllPermsGranted
+                    User.getInstance()._isAllPermsGranted = true
+
+                    //handleShowCallingView()
+
+                } else {
+
+                    User.getInstance()._isAllPermsGranted = false
+
+                    Toast.makeText(applicationContext, "Permission Denied", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+
+    private fun showMessageOKCancel(message: String, okListener: DialogInterface.OnClickListener) {
+        AlertDialog.Builder(this@Main)
+                .setMessage(message)
+                .setPositiveButton("OK", okListener)
+                .setNegativeButton("Cancel", null)
+                .create()
+                .show()
     }
 }
 

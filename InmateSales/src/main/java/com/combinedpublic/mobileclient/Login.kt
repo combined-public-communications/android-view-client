@@ -1,36 +1,33 @@
 package com.combinedpublic.mobileclient
 
 import android.Manifest
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
+import android.content.*
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.InputMethodManager
+import android.webkit.URLUtil
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.combinedpublic.mobileclient.Classes.CallManager
 import com.combinedpublic.mobileclient.Classes.Configuration
 import com.combinedpublic.mobileclient.Classes.CpcApplication
 import com.combinedpublic.mobileclient.Classes.User
 import com.combinedpublic.mobileclient.services.ConnectionManager
-import com.karumi.dexter.Dexter
-import com.karumi.dexter.MultiplePermissionsReport
-import com.karumi.dexter.PermissionToken
-import com.karumi.dexter.listener.PermissionRequest
-import com.karumi.dexter.listener.multi.MultiplePermissionsListener
-
-
 
 
 class Login : AppCompatActivity(), View.OnClickListener {
 
     internal val LOG_TAG = "LoginActivityLogs"
+
 
     lateinit var btnLogin: Button
     lateinit var btnRegister: Button
@@ -39,13 +36,16 @@ class Login : AppCompatActivity(), View.OnClickListener {
     lateinit var loadingPanelLogin: RelativeLayout
     lateinit var tvForget: TextView
 
+    private val PERMISSION_REQUEST_CODE = 200
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val action = intent.action
             if (action == "successfulLogin") {
                 Log.d(LOG_TAG,"We Get successfulLogin !!")
+
                 successfulLogin()
+
             } else if (action == "suspendApp") {
                 suspendApp()
             } else if (action == "unSuspendApp") {
@@ -89,8 +89,20 @@ class Login : AppCompatActivity(), View.OnClickListener {
             editTextPassword.setText(User.getInstance().password, TextView.BufferType.EDITABLE)
         }
 
-        //val isDebuggable = 0 != applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE
+        User.getInstance()._isAllPermsGranted = false
 
+        if (!checkPermission(Manifest.permission.CAMERA) ||
+                !checkPermission(Manifest.permission.RECORD_AUDIO) ||
+                !checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE) ||
+                !checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            val perms = arrayOf(Manifest.permission.CAMERA,
+                    Manifest.permission.RECORD_AUDIO,
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            requestPermission(perms)
+        }
+
+        //val isDebuggable = 0 != applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE
     }
 
 
@@ -115,28 +127,27 @@ class Login : AppCompatActivity(), View.OnClickListener {
         return super.onTouchEvent(event)
     }
 
+
     fun login(login: String, password: String) {
         Log.d(LOG_TAG,"Login - "+login+" Password - "+password)
 
-        if (checkPerms()) {
-            if (login.isNotEmpty() && password.isNotEmpty()) {
-                val intent = Intent()
-                intent.action = "login"
-                intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
-                intent.putExtra("login",login)
-                intent.putExtra("password",password)
-                sendBroadcast(intent)
-
-            }
-        } else {
-            showToast("Error , you should accept all permissions")
+        if (login.isNotEmpty() && password.isNotEmpty()) {
+            val intent = Intent()
+            intent.action = "login"
+            intent.addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES)
+            intent.putExtra("login",login)
+            intent.putExtra("password",password)
+            sendBroadcast(intent)
         }
+
     }
 
     fun successfulLogin() {
         if (!User.getInstance()._isMainShowed) {
+
             val intentMain = Intent(this, Main::class.java)
             startActivity(intentMain)
+
         }
     }
 
@@ -170,9 +181,19 @@ class Login : AppCompatActivity(), View.OnClickListener {
 
 
     fun openUrl(url: String) {
-        User.getInstance()._isUrlOpen = true
-        intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        startActivity(intent)
+        try {
+            if (!URLUtil.isValidUrl(url)) {
+                showToast("It is not possible to open web page.")
+            } else {
+                User.getInstance()._isUrlOpen = true
+
+                intent = Intent(Intent.ACTION_VIEW)
+                intent.data = Uri.parse(url)
+                this.startActivity(intent)
+            }
+        } catch (e: ActivityNotFoundException) {
+            showToast("You don't have any browser to open web page.")
+        }
     }
 
     override fun onBackPressed() {
@@ -200,32 +221,9 @@ class Login : AppCompatActivity(), View.OnClickListener {
         super.onResume()
         editTextLogin.postDelayed(ShowKeyboard(), 500) //250 sometimes doesn't run if returning from LockScreen
 
-        /*val settings = getSharedPreferences("Settings", 0)
-
-        val lastDate = Date(settings.getLong("time", 0)).time
-
-        //getting the current time in milliseconds, and creating a Date object from it:
-        val date = Date()
-        //converting it back to a milliseconds representation:
-        val millis = date.time
-
-        val diff = millis - lastDate
-        */
-
         if (User.getInstance().userName.isNullOrEmpty() && User.getInstance().password.isNullOrEmpty()){
             return
         }
-
-
-        //Log.d(LOG_TAG, "The difference is $diff")
-        /*if (diff > 600000) {
-            login(User.getInstance().userName, User.getInstance().password)
-        } else {
-            Log.d(LOG_TAG, "The difference is less than 10 minutes, skip authorization.")
-            successfulLogin()
-
-            return
-        }*/
 
         login(User.getInstance().userName, User.getInstance().password)
 
@@ -270,28 +268,32 @@ class Login : AppCompatActivity(), View.OnClickListener {
 
     }
 
-    fun checkPerms():Boolean {
-        User.getInstance()._isAllPermsGranted = false
-        Dexter.withActivity(this)
-                .withPermissions(
-                        Manifest.permission.CAMERA,
-                        Manifest.permission.RECORD_AUDIO,
-                        Manifest.permission.READ_EXTERNAL_STORAGE,
-                        Manifest.permission.WRITE_EXTERNAL_STORAGE
-                ).withListener(object : MultiplePermissionsListener {
-                    override fun onPermissionsChecked(report: MultiplePermissionsReport) {
-                        Log.d(LOG_TAG,"onPermissionsChecked, report.areAllPermissionsGranted is : " + report.areAllPermissionsGranted())
-                        if (report.areAllPermissionsGranted()) {
-                            User.getInstance()._isAllPermsGranted = true
-                        }
-                    }
-
-                    override fun onPermissionRationaleShouldBeShown(permissions: List<PermissionRequest>, token: PermissionToken) {
-                        Log.d(LOG_TAG,"onPermissionRationaleShouldBeShown")
-
-                    }
-                }).check()
-
-        return User.getInstance()._isAllPermsGranted
+    private fun checkPermission(permissionType: String): Boolean {
+        return ContextCompat.checkSelfPermission(this, permissionType) === PackageManager.PERMISSION_GRANTED
     }
+
+    private fun requestPermission(permissionArray: Array<String>) {
+        ActivityCompat.requestPermissions(this, permissionArray,
+                PERMISSION_REQUEST_CODE)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        when (requestCode) {
+            PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(applicationContext, "Permission Granted", Toast.LENGTH_SHORT).show()
+
+                    User.getInstance()._isAllPermsGranted = true
+
+                    // main logic
+                } else {
+
+                    User.getInstance()._isAllPermsGranted = false
+
+                    Toast.makeText(applicationContext, "Permission Denied", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
 }
