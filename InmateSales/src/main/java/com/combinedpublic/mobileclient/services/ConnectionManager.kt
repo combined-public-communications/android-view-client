@@ -486,6 +486,10 @@ class ConnectionManager : Service() {
 
         factory = WebSocketFactory().setConnectionTimeout(1000)
 
+        if (mWebSocketClient != null) {
+            mWebSocketClient!!.disconnect()
+        }
+
         mWebSocketClient = factory!!.createSocket(Configuration.wSocket())
                 .addListener(object: WebSocketAdapter() {
 
